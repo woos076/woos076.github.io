@@ -1,0 +1,2399 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내전 룰렛</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: 왼쪽에 닉네임 명단, 오른쪽에 팀 구성 → 룰렛 작전판 → 닉네임별 결과 보드 */
+:root {
+  --bg: #0e161e;
+  --surface: #15202b;
+  --surface-2: #1c2a37;
+  --line: #2b3b4b;
+  --fg: #e8eef3;
+  --muted: #8c9eae;
+  --accent: #ff5a4f;
+  --accent-ink: #1a0a09;
+  --tile: #111b25;
+  --tile-grid: #182532;
+  --cat-sniper: #7cc4ff;
+  --cat-mg: #f0abfc;
+  --xbg: #4d5c6a;
+  --xgrid: #566676;
+  --role-controller: #a78bfa;
+  --role-duelist: #ff7a59;
+  --role-initiator: #4fd1c5;
+  --role-sentinel: #d4e157;
+  --font-display: 'Black Han Sans', 'Noto Sans KR', sans-serif;
+  --font-body: 'IBM Plex Sans KR', 'Noto Sans KR', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); }
+
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+header { margin-bottom: 22px; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(34px, 6vw, 52px);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+.lede { margin: 0; color: var(--muted); max-width: 64ch; }
+
+h2 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.stack { display: grid; gap: 20px; min-width: 0; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px;
+  min-width: 0;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 닉네임 */
+.nick-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 8px; }
+.nick-form input { grid-column: 1 / -1; }
+.nick-form input {
+  min-width: 0;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 9px 10px;
+  font: inherit;
+}
+.nick-form input::placeholder { color: var(--muted); }
+.nick-form select, .tier-sel {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 9px 8px;
+  font: inherit;
+  min-width: 0;
+}
+.nick-row .tier-sel { width: 74px; padding: 6px 4px; font-size: 13px; }
+.btn {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 9px 14px;
+  font-weight: 500;
+}
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.primary:disabled {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+.hint { min-height: 20px; margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.hint.warn { color: var(--accent); }
+
+.nick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nick-row { display: flex; gap: 6px; }
+.nick-pick {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.nick-pick:hover { border-color: var(--muted); }
+.nick-pick .nm { font-weight: 600; overflow-wrap: anywhere; }
+.nick-pick .sm { font-family: var(--font-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.nick-row.on .nick-pick { background: var(--surface-2); border-color: var(--accent); }
+.nick-row.on .nm::before {
+  content: '선택';
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 7px;
+  vertical-align: 1px;
+}
+.nick-del {
+  width: 44px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.nick-del:hover { color: var(--accent); border-color: var(--accent); }
+.nick-del.ask { color: var(--accent); border-color: var(--accent); }
+.empty { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
+
+/* 팀 */
+.rule { font-size: 13px; color: var(--muted); }
+.tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1px 7px;
+  color: var(--muted);
+}
+.sub { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.team { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 12px; min-width: 0; }
+.team.un { grid-column: 1 / -1; }
+.team-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+.team-h strong { font-family: var(--font-display); font-weight: 400; font-size: 22px; }
+.mem-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.mem.on { border-color: var(--accent); background: var(--surface-2); }
+.mem .tier { flex: none; width: 40px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.mem-name { flex: 1; min-width: 60px; background: none; border: 0; padding: 0; text-align: left; font-weight: 600; overflow-wrap: anywhere; }
+.mem-agent { flex: none; font-size: 13px; font-weight: 600; }
+.mem-agent.dim { color: var(--muted); font-weight: 400; }
+.mv { flex: none; font-size: 12px; padding: 3px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
+.mv:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
+.team-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+
+/* 탭 */
+.tabs { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; width: max-content; max-width: 100%; flex-wrap: wrap; }
+.tab { background: var(--bg); border: 0; padding: 9px 18px; font-weight: 600; color: var(--muted); }
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.tab:disabled { opacity: 0.6; }
+
+.who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.who .lbl { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); font-weight: 600; }
+.who strong { font-family: var(--font-display); font-weight: 400; font-size: 26px; overflow-wrap: anywhere; }
+.who .none { color: var(--muted); }
+
+/* 필터 */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--rc, var(--accent)); display: inline-block; }
+.chip[aria-pressed="false"] { opacity: 0.45; }
+.chip[aria-pressed="false"] i { background: var(--muted); }
+.pool { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-left: auto; }
+
+.sens-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+.sens-ctl label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.sens-ctl input, .sens-ctl select, .manual input {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 7px 8px;
+  font: inherit;
+  width: 88px;
+}
+.manual { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+
+/* 릴 */
+.reel {
+  position: relative;
+  overflow: hidden;
+  background: var(--tile);
+  background-image:
+    linear-gradient(var(--tile-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tile-grid) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding-block: 12px;
+}
+.reel::before, .reel::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 56px;
+  z-index: 2;
+  pointer-events: none;
+}
+.reel::before { left: 0; background: linear-gradient(90deg, var(--tile), transparent); }
+.reel::after { right: 0; background: linear-gradient(270deg, var(--tile), transparent); }
+.mark {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  z-index: 3;
+  pointer-events: none;
+}
+.mark::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -6px;
+  border: 7px solid transparent;
+  border-top-color: var(--accent);
+  border-bottom: 0;
+}
+.track { display: flex; gap: 8px; padding-left: 8px; width: max-content; will-change: transform; }
+.card {
+  flex: none;
+  width: 116px;
+  height: 128px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 10px;
+  position: relative;
+}
+.card.win { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: -2px; }
+.card.agent { border-bottom: 4px solid var(--rc); }
+.card .rtag { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; color: var(--rc); letter-spacing: 0.06em; }
+.card.agent strong { font-family: var(--font-display); font-weight: 400; font-size: 21px; line-height: 1.1; overflow-wrap: anywhere; }
+.card.agent em { font-family: var(--font-mono); font-style: normal; font-size: 11px; color: var(--muted); }
+.card.cross { align-items: center; justify-content: space-between; padding: 8px; }
+.card.cross .cl { font-size: 12px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.sens { align-items: center; justify-content: center; text-align: center; }
+.card.sens strong { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; }
+.card.sens span { font-size: 12px; color: var(--muted); }
+
+.xtile {
+  background: var(--xbg);
+  background-image:
+    linear-gradient(var(--xgrid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--xgrid) 1px, transparent 1px);
+  background-size: 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.spin-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 14px; }
+.spin-btn { padding: 13px 30px; font-size: 17px; font-family: var(--font-display); font-weight: 400; letter-spacing: 0.03em; }
+.status { color: var(--muted); font-size: 14px; min-height: 21px; }
+.status.warn { color: var(--accent); }
+
+/* 결과 */
+.result {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+.result .rk { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); font-weight: 600; margin: 0 0 4px; }
+.res-agent { display: grid; gap: 2px; border-left: 4px solid var(--rc); padding-left: 12px; }
+.res-agent strong { font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1.1; }
+.res-agent span { color: var(--muted); font-size: 14px; }
+.res-agent b { color: var(--rc); font-weight: 600; }
+.res-sens strong { font-family: var(--font-display); font-weight: 400; font-size: 48px; line-height: 1.05; display: block; }
+.res-sens span { color: var(--muted); font-size: 14px; }
+.xinfo { min-width: 0; flex: 1; }
+.xname { font-family: var(--font-display); font-size: 28px; line-height: 1.1; overflow-wrap: anywhere; }
+.codebox { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.code {
+  flex: 1;
+  min-width: 200px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.note { margin: 12px 0 0; font-size: 12px; color: var(--muted); max-width: 72ch; }
+
+/* 보드 */
+.board-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.board-head h2 { margin: 0; }
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pcard {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px;
+  min-width: 0;
+}
+.pcard:hover { border-color: var(--muted); }
+.pcard.on { background: var(--surface-2); border-color: var(--accent); }
+.pcard .pn { font-family: var(--font-display); font-size: 20px; overflow-wrap: anywhere; }
+.pcard .prow { display: flex; align-items: center; gap: 10px; min-height: 28px; min-width: 0; }
+.pcard .k { width: 44px; flex: none; font-size: 12px; color: var(--muted); }
+.pcard .v { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pcard .v.dim { color: var(--muted); font-weight: 400; }
+.pcard .sub { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-weight: 400; }
+
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.card.weapon, .card.map { border-bottom: 4px solid var(--rc, var(--line)); }
+.card.weapon strong, .card.map strong { font-family: var(--font-display); font-weight: 400; font-size: 22px; line-height: 1.1; overflow-wrap: anywhere; }
+.card.loadout strong { font-size: 18px; }
+.card.weapon em, .card.map em { font-family: var(--font-mono); font-style: normal; font-size: 11px; color: var(--muted); }
+.mh { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc { display: contents; }
+.dc[hidden] { display: none; }
+.card.sens.pro { gap: 3px; }
+.card.sens.pro strong { font-size: 20px; overflow-wrap: anywhere; }
+.card.sens.pro span { font-family: var(--font-mono); }
+.ptab-wrap { overflow-x: auto; }
+.ptab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ptab th, .ptab td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ptab th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.ptab td.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ex { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.ex summary { cursor: pointer; padding: 9px 12px; font-size: 13px; color: var(--muted); }
+.ex[open] summary { border-bottom: 1px solid var(--line); color: var(--fg); }
+.ex-body { padding: 12px; display: grid; gap: 10px; }
+.ex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ex-row .rl { width: 56px; flex: none; font-size: 12px; font-weight: 600; color: var(--rc); }
+.xchip { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 13px; }
+.xchip:hover { border-color: var(--muted); }
+.xchip[aria-pressed="true"] { text-decoration: line-through; color: var(--muted); border-color: var(--accent); background: var(--bg); }
+.ex-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+
+.card.combo { width: 178px; height: 152px; justify-content: flex-start; gap: 3px; padding: 10px; border-bottom: 4px solid var(--accent); }
+.card.combo .ctitle { font-family: var(--font-display); font-size: 20px; line-height: 1.15; }
+.card.combo .csub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.combo .clist { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 8px; margin-top: 5px; font-size: 13px; font-weight: 600; }
+.combo-members { flex: 1; min-width: 240px; }
+.combo-members .mem-list { margin-top: 6px; }
+.combo-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.combo-tags .tag { font-weight: 600; }
+.ptab td.ag { white-space: normal; min-width: 220px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>내전 룰렛</h1>
+    <p class="lede">닉네임과 티어를 넣고 팀을 나눈 뒤, 닉네임을 골라 요원, 조준점, 감도, 무기 구성, 보조무기, 주무기 룰렛을 돌리세요. 요원은 프로 조합 모드로 팀 전체에 한 번에 배정할 수도 있습니다. 결과는 그 닉네임에 저장됩니다. 맵 룰렛은 경기 전체에 한 번 돌립니다. 조준점은 프로 선수들이 쓰는 실제 코드입니다.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="닉네임 명단">
+      <h2>닉네임</h2>
+      <form class="nick-form" id="nickForm" autocomplete="off">
+        <input id="nickInput" type="text" maxlength="16" placeholder="닉네임 입력" aria-label="닉네임">
+        <select id="tierInput" aria-label="티어">
+          <option value="1">1티어</option>
+          <option value="2">2티어</option>
+          <option value="3" selected>3티어</option>
+          <option value="4">4티어</option>
+          <option value="5">5티어</option>
+        </select>
+        <button class="btn" type="submit">추가</button>
+      </form>
+      <p class="note" style="margin:0 0 10px">1티어가 가장 높은 실력입니다. 팀을 나눌 때 두 팀의 티어가 비슷해지도록 맞춥니다.</p>
+      <p class="hint" id="nickHint" aria-live="polite"></p>
+      <ul class="nick-list" id="nickList"></ul>
+      <p class="empty" id="nickEmpty">아직 닉네임이 없습니다. 참가자 이름을 추가하세요.</p>
+    </aside>
+
+    <main class="stack">
+      <section class="panel" aria-label="팀 구성">
+        <h2>팀 구성</h2>
+        <div class="team-actions">
+          <button class="btn primary" id="splitBtn" type="button">팀 나누기</button>
+          <span class="status" id="teamStatus" aria-live="polite"></span>
+        </div>
+        <div class="teams" id="teams"></div>
+        <p class="empty" id="teamEmpty"></p>
+      </section>
+
+      <section class="panel" aria-label="룰렛">
+        <div class="tabs" role="tablist" aria-label="룰렛 종류">
+          <button class="tab" role="tab" id="tabAgent" data-tab="agent" aria-selected="true" aria-controls="paneAgent">요원 룰렛</button>
+          <button class="tab" role="tab" id="tabCross" data-tab="cross" aria-selected="false" aria-controls="paneCross">조준점 룰렛</button>
+          <button class="tab" role="tab" id="tabSens" data-tab="sens" aria-selected="false" aria-controls="paneSens">감도 룰렛</button>
+          <button class="tab" role="tab" id="tabLoadout" data-tab="loadout" aria-selected="false" aria-controls="paneLoadout">무기 구성 룰렛</button>
+          <button class="tab" role="tab" id="tabSidearm" data-tab="sidearm" aria-selected="false" aria-controls="paneSidearm">보조무기 룰렛</button>
+          <button class="tab" role="tab" id="tabPrimary" data-tab="primary" aria-selected="false" aria-controls="panePrimary">주무기 룰렛</button>
+          <button class="tab" role="tab" id="tabMap" data-tab="map" aria-selected="false" aria-controls="paneMap">맵 룰렛</button>
+        </div>
+
+        <div class="who" id="who"></div>
+
+        <div id="paneAgent" role="tabpanel" aria-labelledby="tabAgent">
+          <div class="filters" id="agentModeRow"></div>
+          <div class="filters" id="filters"></div>
+          <div class="filters" id="comboFilters" hidden></div>
+          <details class="ex" id="exBox">
+            <summary id="exSum">제외할 요원</summary>
+            <div class="ex-body" id="exBody"></div>
+          </details>
+          <div class="reel" id="reelAgent" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+          <div class="reel" id="reelCombo" aria-hidden="true" hidden><div class="mark"></div><div class="track"></div></div>
+          <details class="ex" id="comboTable" hidden style="margin-top:12px">
+            <summary>프로 조합 목록 보기</summary>
+            <div class="ex-body" id="comboTableBody"></div>
+          </details>
+        </div>
+
+        <div id="paneCross" role="tabpanel" aria-labelledby="tabCross" hidden>
+          <div class="filters" id="xfilters"></div>
+          <div class="reel" id="reelCross" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+        </div>
+
+        <div id="paneSens" role="tabpanel" aria-labelledby="tabSens" hidden>
+          <div class="filters" id="sensModeRow"></div>
+          <div class="sens-ctl">
+            <span class="dc" id="sensRangeBox">
+            <label for="sensMin">최소 <input id="sensMin" type="number" step="0.0001" min="0.0001" max="5" inputmode="decimal"></label>
+            <label for="sensMax">최대 <input id="sensMax" type="number" step="0.0001" min="0.0001" max="5" inputmode="decimal"></label>
+            <label for="sensStep">간격
+              <select id="sensStep">
+                <option value="0.0001">0.0001</option>
+                <option value="0.001">0.001</option>
+                <option value="0.01">0.01</option>
+                <option value="0.05">0.05</option>
+                <option value="0.1">0.1</option>
+              </select>
+            </label>
+            </span>
+            <span class="pool" id="sensCount"></span>
+          </div>
+          <div class="reel" id="reelSens" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+          <details class="ex" id="proTable" hidden>
+            <summary id="proTableSum">선수별 DPI와 감도 보기</summary>
+            <div class="ex-body" id="proTableBody"></div>
+          </details>
+          <div class="manual">
+            <label for="sensManual">룰렛 대신 직접 정하기</label>
+            <input id="sensManual" type="number" step="0.0001" min="0.0001" max="5" inputmode="decimal" placeholder="0.3500">
+            <button class="btn" id="sensApply" type="button">적용</button>
+          </div>
+        </div>
+
+        <div id="paneLoadout" role="tabpanel" aria-labelledby="tabLoadout" hidden>
+          <div class="filters"><span class="rule">어떤 무기 칸을 쓸 수 있는지 정합니다. 보조무기는 권총, 주무기는 소총, 기관단총, 샷건, 저격총, 기관총이에요.</span></div>
+          <div class="reel" id="reelLoadout" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+        </div>
+
+        <div id="paneSidearm" role="tabpanel" aria-labelledby="tabSidearm" hidden>
+          <div class="filters"><span class="rule">보조무기(권총) 6종에서 한 자루를 뽑습니다. 무기 구성에 보조무기가 있을 때만 돌릴 수 있어요.</span><span class="pool" id="sPoolCount"></span></div>
+          <div class="reel" id="reelSidearm" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+        </div>
+
+        <div id="panePrimary" role="tabpanel" aria-labelledby="tabPrimary" hidden>
+          <div class="filters" id="wfilters"></div>
+          <div class="reel" id="reelPrimary" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+        </div>
+
+        <div id="paneMap" role="tabpanel" aria-labelledby="tabMap" hidden>
+          <div class="filters" id="mfilters"></div>
+          <div class="reel" id="reelMap" aria-hidden="true"><div class="mark"></div><div class="track"></div></div>
+        </div>
+
+        <div class="spin-row">
+          <button class="btn primary spin-btn" id="spinBtn" type="button">룰렛 돌리기</button>
+          <span class="status" id="status" aria-live="polite"></span>
+        </div>
+
+        <div class="result" id="result"></div>
+        <p class="note" id="tabNote"></p>
+      </section>
+
+      <section class="panel" aria-label="결과 보드">
+        <div class="board-head">
+          <h2>결과 보드</h2>
+          <button class="btn" id="clearBtn" type="button">결과 초기화</button>
+        </div>
+        <div class="board" id="board"></div>
+        <p class="empty" id="boardEmpty">닉네임을 추가하면 뽑은 요원, 조준점, 감도, 무기 구성, 보조무기, 주무기가 여기에 모입니다.</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'naejeon-roulette-v1';
+  var MAX_NICKS = 20;
+
+  var ROLES = {
+    controller: { ko: '전략가', en: 'Controller', c: 'var(--role-controller)' },
+    duelist: { ko: '타격대', en: 'Duelist', c: 'var(--role-duelist)' },
+    initiator: { ko: '척후대', en: 'Initiator', c: 'var(--role-initiator)' },
+    sentinel: { ko: '감시자', en: 'Sentinel', c: 'var(--role-sentinel)' }
+  };
+
+  var AGENTS = [
+    ['brimstone', '브림스톤', 'Brimstone', 'controller'],
+    ['viper', '바이퍼', 'Viper', 'controller'],
+    ['omen', '오멘', 'Omen', 'controller'],
+    ['astra', '아스트라', 'Astra', 'controller'],
+    ['harbor', '하버', 'Harbor', 'controller'],
+    ['clove', '클로브', 'Clove', 'controller'],
+    ['miks', '믹스', 'Miks', 'controller'],
+    ['phoenix', '피닉스', 'Phoenix', 'duelist'],
+    ['jett', '제트', 'Jett', 'duelist'],
+    ['reyna', '레이나', 'Reyna', 'duelist'],
+    ['raze', '레이즈', 'Raze', 'duelist'],
+    ['yoru', '요루', 'Yoru', 'duelist'],
+    ['neon', '네온', 'Neon', 'duelist'],
+    ['iso', '아이소', 'Iso', 'duelist'],
+    ['waylay', '웨이레이', 'Waylay', 'duelist'],
+    ['hush', '허시', 'Hush', 'duelist'],
+    ['sova', '소바', 'Sova', 'initiator'],
+    ['breach', '브리치', 'Breach', 'initiator'],
+    ['skye', '스카이', 'Skye', 'initiator'],
+    ['kayo', '케이/오', 'KAY/O', 'initiator'],
+    ['fade', '페이드', 'Fade', 'initiator'],
+    ['gekko', '게코', 'Gekko', 'initiator'],
+    ['tejo', '테호', 'Tejo', 'initiator'],
+    ['sage', '세이지', 'Sage', 'sentinel'],
+    ['cypher', '사이퍼', 'Cypher', 'sentinel'],
+    ['killjoy', '킬조이', 'Killjoy', 'sentinel'],
+    ['chamber', '챔버', 'Chamber', 'sentinel'],
+    ['deadlock', '데드록', 'Deadlock', 'sentinel'],
+    ['vyse', '바이스', 'Vyse', 'sentinel'],
+    ['veto', '비토', 'Veto', 'sentinel']
+  ].map(function (a) { return { key: a[0], ko: a[1], en: a[2], role: a[3] }; });
+  var AGENT_BY_KEY = {};
+  AGENTS.forEach(function (a) { AGENT_BY_KEY[a.key] = a; });
+
+  var WCATS = {
+    sidearm: { ko: '권총', c: 'var(--role-initiator)' },
+    smg: { ko: '기관단총', c: 'var(--role-controller)' },
+    shotgun: { ko: '샷건', c: 'var(--role-duelist)' },
+    rifle: { ko: '소총', c: 'var(--role-sentinel)' },
+    sniper: { ko: '저격총', c: 'var(--cat-sniper)' },
+    mg: { ko: '기관총', c: 'var(--cat-mg)' }
+  };
+  var WEAPONS = [
+    ['classic', '클래식', 'Classic', 'sidearm'],
+    ['shorty', '쇼티', 'Shorty', 'sidearm'],
+    ['frenzy', '프렌지', 'Frenzy', 'sidearm'],
+    ['ghost', '고스트', 'Ghost', 'sidearm'],
+    ['bandit', '밴딧', 'Bandit', 'sidearm'],
+    ['sheriff', '셰리프', 'Sheriff', 'sidearm'],
+    ['stinger', '스팅어', 'Stinger', 'smg'],
+    ['spectre', '스펙터', 'Spectre', 'smg'],
+    ['bucky', '버키', 'Bucky', 'shotgun'],
+    ['judge', '저지', 'Judge', 'shotgun'],
+    ['bulldog', '불독', 'Bulldog', 'rifle'],
+    ['guardian', '가디언', 'Guardian', 'rifle'],
+    ['phantom', '팬텀', 'Phantom', 'rifle'],
+    ['vandal', '밴달', 'Vandal', 'rifle'],
+    ['warden', '워든', 'Warden', 'rifle'],
+    ['marshal', '마샬', 'Marshal', 'sniper'],
+    ['outlaw', '아웃로', 'Outlaw', 'sniper'],
+    ['operator', '오퍼레이터', 'Operator', 'sniper'],
+    ['ares', '아레스', 'Ares', 'mg'],
+    ['odin', '오딘', 'Odin', 'mg']
+  ].map(function (w) { return { key: w[0], ko: w[1], en: w[2], cat: w[3] }; });
+  var WEAPON_BY_KEY = {};
+  WEAPONS.forEach(function (w) { WEAPON_BY_KEY[w.key] = w; });
+
+  /* 무기 구성: 쓸 수 있는 칸 (side 보조무기=권총, main 주무기, knife 칼) */
+  var SLOT_KO = { side: '보조무기(권총)', main: '주무기', knife: '칼' };
+  var LOADOUTS = [
+    ['side', '권총만', ['side']],
+    ['knife', '칼만', ['knife']],
+    ['main', '주무기만', ['main']],
+    ['side_knife', '보조무기 + 칼', ['side', 'knife']],
+    ['side_main', '보조무기 + 주무기', ['side', 'main']],
+    ['all', '3개 모두', ['side', 'main', 'knife']]
+  ].map(function (l) {
+    return { key: l[0], ko: l[1], slots: l[2], sub: l[2].map(function (k) { return SLOT_KO[k]; }).join(' · ') };
+  });
+  var LOADOUT_BY_KEY = {};
+  LOADOUTS.forEach(function (l) { LOADOUT_BY_KEY[l.key] = l; });
+  function slotOf(w) { return w.cat === 'sidearm' ? 'side' : 'main'; }
+
+  /* 경쟁전 맵 풀: 2026년 V26 Act 6 기준 */
+  var MAPS = [
+    ['ascent', '어센트', 'Ascent', false],
+    ['bind', '바인드', 'Bind', true],
+    ['breeze', '브리즈', 'Breeze', false],
+    ['fracture', '프랙처', 'Fracture', false],
+    ['haven', '헤이븐', 'Haven', true],
+    ['icebox', '아이스박스', 'Icebox', false],
+    ['lotus', '로터스', 'Lotus', true],
+    ['pearl', '펄', 'Pearl', false],
+    ['split', '스플릿', 'Split', false],
+    ['sunset', '선셋', 'Sunset', true],
+    ['abyss', '어비스', 'Abyss', true],
+    ['corrode', '코로드', 'Corrode', true],
+    ['summit', '서밋', 'Summit', true]
+  ].map(function (m) { return { key: m[0], ko: m[1], en: m[2], comp: m[3] }; });
+  var MAP_BY_KEY = {};
+  MAPS.forEach(function (m) { MAP_BY_KEY[m.key] = m; });
+
+  /* 조준점 코드: thespike.gg 조준점 코드 모음에서 가져온 프로 선수 코드 */
+  var PRO_CODES = [
+    ['Asuna', '0;P;o;1;0t;1;0l;2;0a;1;0f;0;1b;0'],
+    ['Hiko (a)', '0;P;c;1;h;0;d;1;z;1;0t;1;0l;2;0a;1;0f;0;1l;5;1o;4;1a;1;1m;0;1f;0'],
+    ['ScreaM (a)', '0;s;1;P;c;5;o;1;d;1;z;3;f;0;0t;6;0l;0;0a;1;0f;0;1b;0;S;c;6;s;0.949;o;1'],
+    ['Shroud (a)', '0;P;u;FFFFCCFF;h;0;f;0;0l;5;0v;5;0o;0;0a;1;0f;0;1m;0;1f;0'],
+    ['yay (a)', '0;s;1;P;c;7;u;FF0000FF;h;0;0l;20;0o;0;0a;1;0f;0;1b;0'],
+    ['Wardell', '0;s;1;P;h;0;0t;1;0l;4;0o;1;0a;1;0f;0;1b;0;S;o;1']
+  ];
+  var SHAPE_CODES = [
+    ['하트', 'Heart', '0;P;c;6;o;0.1;m;1;0t;5;0l;3;0o;1;0a;0.7;0f;0;1t;1;1l;5;1o;0;1a;0.7;1m;0;1f;0'],
+    ['원', 'Circle', '0;P;c;7;h;0;f;0;0t;3;0l;1;0v;1;0g;1;0o;1;0a;1;0f;0;1t;0;1l;0;1o;0;1a;0;1f;0'],
+    ['고양이', 'Cat', '0;P;c;8;u;FF69B4FF;h;0;d;1;b;1;z;3;0t;10;0l;0;0v;3;0g;1;0o;1;0a;1;0f;0;1t;9;1v;0;1g;1;1o;3;1a;1;1m;0;1f;0'],
+    ['안경', 'Glasses', '0;P;c;7;h;0;f;0;0t;3;0l;1;0v;1;0g;1;0o;1;0a;1;0f;0;1t;0;1l;0;1o;0;1a;0;1f;0'],
+    ['다이아몬드', 'Diamond', '0;P;c;5;h;0;d;1;z;4;f;0;0t;4;0l;1;0v;1;0g;1;0o;2;0a;1;0f;0;1l;1;1v;1;1g;1;1o;3;1a;1;1m;0;1f;0'],
+    ['눈송이', 'Snowflake', '0;P;h;0;0t;1;0l;4;0o;0;0a;1;0m;1;0f;0;0s;0.02;1t;3;1l;1;1o;2;1a;1;1f;0;1s;0.02']
+  ];
+  /* 예능 조준점: dak.gg 조준점 게시판(전체/예능)에서 복사한 코드 */
+  var ENT_CODES = [
+    ['그물', '0;P;o;1;d;1;a;0;f;0;0t;8;0l;2;0o;5;0a;0;0f;0;1l;8;1o;2;1a;0;1m;0;1f;0'],
+    ['무반동 조준점', '0;s;1;P;o;1;d;1;z;3;f;0;0t;3;0l;0;0v;3;0g;1;0o;20;0a;1;0f;0;1t;3;1l;0;1v;3;1g;1;1o;40;1a;1;1m;0;1f;0;S;c;0;s;0.628;o;1'],
+    ['체임버 손목시계', '0;p;0;s;1;P;c;8;u;FF9F00FF;o;1;d;1;b;1;f;0;0t;6;0l;1;0v;20;0g;1;0o;7;0a;0.32;0f;0;1t;8;1l;6;1g;1;1o;0;1a;0.994;1m;0;1f;0;A;c;8;u;FF9F00FF;o;1;b;1;0t;6;0v;20;0g;1;0o;6;0a;0.345;0f;0;1t;10;1l;3;1v;4;1g;1;1o;6;1a;0.575;1m;0;1f;0;S;b;1;c;8;t;FF9F00FF;s;1.862;o;1'],
+    ['우파루파', '0;c;1;s;1;P;c;8;u;000000FF;h;0;b;1;f;0;0t;10;0l;20;0v;0;0g;1;0o;0;0a;1;0f;0;1t;10;1l;10;1v;0;1g;1;1o;40;1a;1;1s;0;1e;0;S;o;1'],
+    ['겁나 큰 십자가', '0;s;1;P;c;6;t;6;o;1;d;1;z;6;f;0;0t;10;0l;20;0v;20;0g;1;0o;20;0a;1;0m;1;0s;3;0e;3;1t;6;1l;10;1v;10;1o;11;1a;1;1e;2.028;S;s;4;o;1'],
+    ['눈', '0;c;1;s;1;P;t;4;o;1;d;1;z;5;a;0.556;0t;10;0l;20;0v;0;0g;1;0o;13;0a;1;0f;0;1t;1;1l;1;1v;0;1g;1;1o;14;1a;1;1s;0.064;1e;0.375;S;c;3;s;0.628;o;1'],
+    ['오리', '0;p;0;P;c;4;u;FFC0CBFF;o;1;d;1;z;6;a;0;f;0;m;1;0t;1;0l;1;0v;0;0g;1;0o;11;0a;0;0f;0;1t;6;1l;0;1v;3;1g;1;1o;0;1a;1;1s;0.053;1e;0.149'],
+    ['나누기', '0;c;1;s;1;P;h;0;f;0;0t;4;0l;13;0v;0;0g;1;0o;0;0a;1;0f;0;1t;4;1l;0;1v;4;1g;1;1a;1;1m;0;1f;0;S;s;0.6;o;1'],
+    ['쏠대만 보임', '0;P;c;5;o;0.2;d;1;z;0;f;1;0l;1;0v;1;0g;2;0o;1;0a;0.2;0f;1;1l;1;1v;1;1g;2;1o;1;1a;0.2'],
+    ['고양이?', '0;P;c;8;h;0;d;1;b;1;z;3;f;0;0t;10;0l;0;0v;3;0g;1;0o;1;0a;1;0f;0;1t;9;1v;0;1g;1;1o;3;1a;1;1m;0;1f;0'],
+    ['브림 궤도 일격', '0;P;d;1;z;4;0t;4;0l;2;0v;2;0o;7;0a;0;0f;0;1t;10;1o;2;1a;0;1m;0;1f;0'],
+    ['조준점 두개', '0;p;0;c;1;s;1;P;c;6;h;0;f;0;0l;10;0v;0;0g;1;0o;20;0a;1;0m;1;0s;3;1t;10;1v;0;1g;1;1o;24;1a;1;1s;3;A;c;1;h;0;0l;10;0v;0;0g;1;0o;6;0a;1;0f;0;1t;10;1v;0;1g;1;1a;1;1m;0;1f;0'],
+    ['트롤', '0;s;1;P;c;8;u;000000FF;t;6;o;1;d;1;b;1;z;6;f;0;0t;10;0l;19;0v;20;0g;1;0o;15;0a;1;0f;0;1t;10;1l;10;1v;10;1o;40;1a;1;1m;0;1f;0;S;b;1;c;8;t;000000FF;s;4;o;1'],
+    ['레이나 눈총', '0;P;c;6;t;6;o;0.3;f;0;0t;1;0l;5;0o;5;0a;1;0f;0;1t;10;1l;4;1o;5;1a;0.5;1m;0;1f;0'],
+    ['일자', '0;s;1;P;c;8;u;FFDD00FF;t;6;o;1;d;1;b;1;z;3;a;0;f;0;m;1;0t;3;0l;20;0v;0;0g;1;0o;5;0a;1;0f;0;1t;3;1l;10;1v;0;1g;1;1o;37;1a;1;1m;0;1f;0;S;b;1;c;8;t;000000FF;s;4;o;0.47'],
+    ['없음', '0;s;1;P;u;000000FF;h;0;f;0;0b;0;1b;0;S;d;0'],
+    ['점두개', '0;p;0;c;1;P;c;4;u;FFC0CBFF;o;1;f;0;m;1;0t;1;0l;1;0v;0;0g;1;0o;11;0a;0;0m;1;0s;0;0e;0;1b;0']
+  ];
+  var XH = [];
+  PRO_CODES.forEach(function (p) { XH.push({ id: p[0], name: p[0], code: p[1], kind: 'pro', sub: '프로 선수' }); });
+  SHAPE_CODES.forEach(function (p) { XH.push({ id: 'shape:' + p[1], name: p[0], code: p[2], kind: 'shape', sub: '모양 · ' + p[1] }); });
+  ENT_CODES.forEach(function (p) { XH.push({ id: 'ent:' + p[0], name: p[0], code: p[1], kind: 'ent', sub: '예능 · dak.gg' }); });
+  var XH_BY_ID = {};
+  XH.forEach(function (x) { XH_BY_ID[x.id] = x; });
+  var XKINDS = { pro: '프로 선수', shape: '모양', ent: '예능' };
+
+  /* 프로 선수 DPI와 인게임 감도: prosettings.net 선수 페이지에서 2026-10-23에 확인 [이름, 팀, DPI, 감도, 페이지 갱신일] */
+  var PRO_SENS = [
+    ['TenZ', 'T1', 1600, 0.14, '2026-10-05'],
+    ['aspas', 'MIBR', 800, 0.4, '2026-10-13'],
+    ['something', 'Paper Rex', 800, 0.5, '2026-10-12'],
+    ['CHICHOO', 'Edward Gaming', 800, 0.2, '2026-08-03'],
+    ['Derke', 'Team Vitality', 400, 0.74, '2026-10-19'],
+    ['Demon1', 'Team Envy', 1600, 0.1, '2026-05-18'],
+    ['yay', '무소속', 800, 0.38, '2025-12-15'],
+    ['Boaster', 'Fnatic', 800, 0.2, '2026-09-08'],
+    ['Chronicle', 'Team Vitality', 1600, 0.175, '2026-10-14'],
+    ['Alfajer', 'Fnatic', 400, 0.45, '2026-08-31'],
+    ['f0rsakeN', 'Paper Rex', 800, 0.712, '2026-10-02'],
+    ['Less', 'KRÜ Esports', 800, 0.32, '2026-05-11'],
+    ['Zekken', 'MIBR', 1600, 0.175, '2026-10-05'],
+    ['Jinggg', 'Paper Rex', 1600, 0.175, '2026-10-02'],
+    ['Sayf', '무소속', 800, 0.4, '2026-04-20'],
+    ['cNed', '무소속', 800, 0.3, '2026-08-10'],
+    ['Leo', '은퇴', 400, 0.41, '2026-03-11'],
+    ['Marved', '무소속', 1600, 0.153, '2026-10-05'],
+    ['Zellsis', 'Cloud9', 800, 0.215, '2026-06-26'],
+    ['Sacy', 'MIBR', 800, 0.44, '2026-10-05']
+  ].map(function (p) { return { name: p[0], team: p[1], dpi: p[2], sens: p[3], at: p[4], edpi: Math.round(p[2] * p[3] * 10) / 10 }; });
+  var PRO_SENS_BY_NAME = {};
+  PRO_SENS.forEach(function (p) { PRO_SENS_BY_NAME[p.name] = p; });
+
+  /* 프로 요원 조합: 2026년 대회(국제전·지역 리그)에서 맵별로 가장 많이 쓰인 5인 조합 (vct-reference.com 대회 페이지, 2026-10-24 확인; 중국 쓰레숄드는 요원 정보가 없어 제외) */
+  var COMBO_EVENTS = {
+    sant: { ko: '마스터스 산티아고', date: '2026.2.28~3.15', url: 'https://vct-reference.com/events/vct-2026-masters-santiago-2760' },
+    lon: { ko: '마스터스 런던', date: '2026.6.6~21', url: 'https://vct-reference.com/events/vct-2026-masters-london-2765' },
+    champ: { ko: '챔피언스', date: '2026.9.24~10.18', url: 'https://vct-reference.com/events/vct-2026-champions-2766' },
+    pac2: { ko: '퍼시픽 스테이지 2', date: '2026.7.16~9.6', url: 'https://vct-reference.com/events/vct-2026-pacific-stage-2-2776' },
+    emea2: { ko: 'EMEA 스테이지 2', date: '2026.7.15~8.30', url: 'https://vct-reference.com/events/vct-2026-emea-stage-2-2976' },
+    am2: { ko: '아메리카스 스테이지 2', date: '2026.7.16~9.6', url: 'https://vct-reference.com/events/vct-2026-americas-stage-2-2977' },
+    cn2: { ko: '중국 스테이지 2', date: '2026.7.9~8.23', url: 'https://vct-reference.com/events/vct-2026-china-stage-2-2978' },
+    am1: { ko: '아메리카스 스테이지 1', date: '2026.4.10~5.24', url: 'https://vct-reference.com/events/vct-2026-americas-stage-1-2860' },
+    emea1: { ko: 'EMEA 스테이지 1', date: '2026.4.1~5.17', url: 'https://vct-reference.com/events/vct-2026-emea-stage-1-2863' },
+    pac1: { ko: '퍼시픽 스테이지 1', date: '2026.4.3~5.17', url: 'https://vct-reference.com/events/vct-2026-pacific-stage-1-2775' },
+    cn1: { ko: '중국 스테이지 1', date: '2026.3.31~5.10', url: 'https://vct-reference.com/events/vct-2026-china-stage-1-2864' },
+    kemea: { ko: 'EMEA 킥오프', date: '2026.1.20~2.15', url: 'https://vct-reference.com/events/vct-2026-emea-kickoff-2684' },
+    kpac: { ko: '퍼시픽 킥오프', date: '2026.1.22~2.15', url: 'https://vct-reference.com/events/vct-2026-pacific-kickoff-2683' },
+    kam: { ko: '아메리카스 킥오프', date: '2026.1.15~2.15', url: 'https://vct-reference.com/events/vct-2026-americas-kickoff-2682' },
+    kcn: { ko: '중국 킥오프', date: '2026.1.22~2.9', url: 'https://vct-reference.com/events/vct-2026-china-kickoff-2685' },
+    kr: { ko: '한국 챌린저스 스플릿 2', date: '2026.6.3~7.15', url: 'https://www.vlr.gg/event/2973/challengers-2026-korea-wdg-split-2' },
+    krpro: { ko: '한국 1군 팀 (VCT 2026)', date: '2026 퍼시픽 스테이지 1·2, 챔피언스', url: 'https://www.vlr.gg/event/2776/vct-2026-pacific-stage-2' }
+  };
+  var COMBO_COUNTER = {};
+  var COMBOS = [
+    ['sant', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 7, 42.9],
+    ['sant', 'split', ['fade', 'omen', 'raze', 'viper', 'yoru'], 7, 71.4],
+    ['sant', 'breeze', ['jett', 'omen', 'sova', 'viper', 'yoru'], 5, 80.0],
+    ['sant', 'corrode', ['fade', 'omen', 'viper', 'vyse', 'waylay'], 5, 60.0],
+    ['sant', 'abyss', ['cypher', 'omen', 'sova', 'waylay', 'yoru'], 4, 100.0],
+    ['sant', 'abyss', ['omen', 'sova', 'tejo', 'viper', 'waylay'], 4, 50.0],
+    ['sant', 'breeze', ['neon', 'omen', 'sova', 'viper', 'yoru'], 4, 50.0],
+    ['sant', 'haven', ['astra', 'chamber', 'fade', 'phoenix', 'yoru'], 4, 100.0],
+    ['sant', 'pearl', ['astra', 'killjoy', 'sova', 'tejo', 'waylay'], 4, 100.0],
+    ['sant', 'abyss', ['astra', 'harbor', 'neon', 'sova', 'waylay'], 3, 100.0],
+    ['lon', 'lotus', ['jett', 'omen', 'raze', 'skye', 'vyse'], 10, 50.0],
+    ['lon', 'lotus', ['fade', 'omen', 'raze', 'viper', 'vyse'], 9, 77.8],
+    ['lon', 'split', ['jett', 'omen', 'raze', 'skye', 'viper'], 8, 37.5],
+    ['lon', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 5, 60.0],
+    ['lon', 'haven', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 5, 0.0],
+    ['lon', 'lotus', ['cypher', 'deadlock', 'fade', 'omen', 'sage'], 5, 20.0],
+    ['lon', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 5, 40.0],
+    ['lon', 'split', ['fade', 'neon', 'omen', 'phoenix', 'viper'], 5, 100.0],
+    ['lon', 'ascent', ['chamber', 'neon', 'omen', 'phoenix', 'sova'], 4, 75.0],
+    ['lon', 'fracture', ['brimstone', 'cypher', 'fade', 'jett', 'raze'], 4, 50.0],
+    ['champ', 'lotus', ['chamber', 'fade', 'neon', 'omen', 'viper'], 10, 30.0],
+    ['champ', 'ascent', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 9, 44.4],
+    ['champ', 'split', ['fade', 'neon', 'omen', 'viper', 'yoru'], 8, 50.0],
+    ['champ', 'summit', ['chamber', 'fade', 'harbor', 'neon', 'sage'], 8, 62.5],
+    ['champ', 'summit', ['chamber', 'fade', 'neon', 'omen', 'sage'], 7, 71.4],
+    ['champ', 'ascent', ['chamber', 'neon', 'omen', 'sage', 'sova'], 6, 33.3],
+    ['champ', 'ascent', ['chamber', 'omen', 'sage', 'sova', 'yoru'], 5, 80.0],
+    ['champ', 'abyss', ['astra', 'harbor', 'neon', 'sova', 'waylay'], 4, 50.0],
+    ['champ', 'lotus', ['omen', 'raze', 'skye', 'viper', 'vyse'], 4, 75.0],
+    ['champ', 'split', ['chamber', 'neon', 'omen', 'skye', 'viper'], 4, 75.0],
+    ['pac2', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 12, 50.0],
+    ['pac2', 'breeze', ['harbor', 'neon', 'phoenix', 'sova', 'viper'], 10, 60.0],
+    ['pac2', 'haven', ['cypher', 'neon', 'omen', 'sova', 'yoru'], 10, 60.0],
+    ['pac2', 'ascent', ['cypher', 'jett', 'neon', 'omen', 'sova'], 9, 44.4],
+    ['pac2', 'sunset', ['chamber', 'fade', 'neon', 'omen', 'sage'], 9, 66.7],
+    ['pac2', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'yoru'], 7, 57.1],
+    ['pac2', 'split', ['fade', 'omen', 'raze', 'viper', 'yoru'], 7, 71.4],
+    ['pac2', 'split', ['fade', 'omen', 'raze', 'sage', 'viper'], 6, 50.0],
+    ['pac2', 'sunset', ['cypher', 'neon', 'omen', 'sage', 'sova'], 6, 50.0],
+    ['pac2', 'abyss', ['cypher', 'omen', 'sova', 'waylay', 'yoru'], 5, 40.0],
+    ['emea2', 'ascent', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 19, 47.4],
+    ['emea2', 'split', ['fade', 'neon', 'omen', 'phoenix', 'viper'], 19, 47.4],
+    ['emea2', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 16, 56.3],
+    ['emea2', 'lotus', ['fade', 'omen', 'raze', 'viper', 'vyse'], 13, 46.2],
+    ['emea2', 'ascent', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 8, 62.5],
+    ['emea2', 'lotus', ['neon', 'omen', 'raze', 'skye', 'vyse'], 8, 37.5],
+    ['emea2', 'lotus', ['cypher', 'fade', 'jett', 'omen', 'raze'], 7, 71.4],
+    ['emea2', 'lotus', ['cypher', 'fade', 'neon', 'omen', 'raze'], 7, 42.9],
+    ['emea2', 'split', ['neon', 'omen', 'raze', 'skye', 'viper'], 7, 57.1],
+    ['emea2', 'sunset', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 7, 14.3],
+    ['am2', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 16, 62.5],
+    ['am2', 'split', ['fade', 'neon', 'omen', 'phoenix', 'viper'], 16, 56.3],
+    ['am2', 'breeze', ['cypher', 'harbor', 'neon', 'phoenix', 'sova'], 11, 54.5],
+    ['am2', 'lotus', ['fade', 'omen', 'raze', 'viper', 'vyse'], 11, 36.4],
+    ['am2', 'sunset', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 11, 36.4],
+    ['am2', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 8, 50.0],
+    ['am2', 'summit', ['chamber', 'fade', 'neon', 'omen', 'sage'], 8, 62.5],
+    ['am2', 'ascent', ['chamber', 'neon', 'omen', 'phoenix', 'sova'], 7, 57.1],
+    ['am2', 'haven', ['chamber', 'neon', 'omen', 'phoenix', 'sova'], 7, 57.1],
+    ['am2', 'lotus', ['chamber', 'fade', 'neon', 'omen', 'viper'], 7, 71.4],
+    ['cn2', 'split', ['jett', 'omen', 'raze', 'skye', 'viper'], 14, 71.4],
+    ['cn2', 'ascent', ['cypher', 'jett', 'kayo', 'omen', 'sova'], 13, 46.2],
+    ['cn2', 'lotus', ['cypher', 'fade', 'omen', 'raze', 'waylay'], 11, 54.5],
+    ['cn2', 'ascent', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 10, 40.0],
+    ['cn2', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 10, 50.0],
+    ['cn2', 'lotus', ['fade', 'omen', 'raze', 'viper', 'vyse'], 10, 40.0],
+    ['cn2', 'sunset', ['cypher', 'kayo', 'neon', 'omen', 'sova'], 10, 50.0],
+    ['cn2', 'split', ['neon', 'omen', 'skye', 'viper', 'waylay'], 9, 55.6],
+    ['cn2', 'sunset', ['cypher', 'neon', 'omen', 'sage', 'sova'], 9, 55.6],
+    ['cn2', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 8, 37.5],
+    ['am1', 'lotus', ['fade', 'neon', 'omen', 'viper', 'vyse'], 15, 60.0],
+    ['am1', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 10, 60.0],
+    ['am1', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 10, 40.0],
+    ['am1', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 8, 75.0],
+    ['am1', 'lotus', ['fade', 'omen', 'raze', 'viper', 'vyse'], 7, 71.4],
+    ['am1', 'split', ['fade', 'neon', 'omen', 'viper', 'vyse'], 7, 42.9],
+    ['am1', 'breeze', ['harbor', 'iso', 'neon', 'sova', 'viper'], 6, 50.0],
+    ['am1', 'haven', ['astra', 'chamber', 'neon', 'phoenix', 'sova'], 6, 50.0],
+    ['am1', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 5, 20.0],
+    ['am1', 'pearl', ['astra', 'chamber', 'neon', 'phoenix', 'sova'], 5, 60.0],
+    ['emea1', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 12, 41.7],
+    ['emea1', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 11, 63.6],
+    ['emea1', 'pearl', ['astra', 'cypher', 'fade', 'neon', 'phoenix'], 9, 66.7],
+    ['emea1', 'split', ['fade', 'neon', 'omen', 'raze', 'viper'], 9, 33.3],
+    ['emea1', 'lotus', ['cypher', 'fade', 'neon', 'omen', 'raze'], 7, 85.7],
+    ['emea1', 'split', ['astra', 'fade', 'neon', 'raze', 'viper'], 6, 33.3],
+    ['emea1', 'ascent', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 5, 60.0],
+    ['emea1', 'bind', ['brimstone', 'neon', 'skye', 'viper', 'waylay'], 5, 60.0],
+    ['emea1', 'fracture', ['brimstone', 'cypher', 'fade', 'neon', 'raze'], 5, 80.0],
+    ['emea1', 'ascent', ['cypher', 'jett', 'neon', 'omen', 'sova'], 4, 100.0],
+    ['pac1', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 11, 45.5],
+    ['pac1', 'breeze', ['jett', 'neon', 'omen', 'sova', 'viper'], 8, 50.0],
+    ['pac1', 'breeze', ['harbor', 'kayo', 'neon', 'sova', 'viper'], 7, 57.1],
+    ['pac1', 'lotus', ['jett', 'omen', 'raze', 'skye', 'vyse'], 7, 85.7],
+    ['pac1', 'bind', ['brimstone', 'neon', 'skye', 'viper', 'waylay'], 6, 50.0],
+    ['pac1', 'pearl', ['astra', 'chamber', 'killjoy', 'neon', 'skye'], 6, 50.0],
+    ['pac1', 'split', ['jett', 'omen', 'raze', 'skye', 'viper'], 6, 100.0],
+    ['pac1', 'pearl', ['astra', 'chamber', 'fade', 'neon', 'phoenix'], 5, 80.0],
+    ['pac1', 'breeze', ['chamber', 'neon', 'sage', 'sova', 'viper'], 4, 75.0],
+    ['pac1', 'breeze', ['harbor', 'neon', 'phoenix', 'sova', 'viper'], 4, 50.0],
+    ['cn1', 'split', ['neon', 'omen', 'skye', 'viper', 'waylay'], 19, 47.4],
+    ['cn1', 'bind', ['brimstone', 'neon', 'skye', 'viper', 'waylay'], 17, 64.7],
+    ['cn1', 'fracture', ['brimstone', 'cypher', 'neon', 'skye', 'waylay'], 12, 66.7],
+    ['cn1', 'haven', ['cypher', 'neon', 'omen', 'sova', 'waylay'], 10, 70.0],
+    ['cn1', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 9, 33.3],
+    ['cn1', 'lotus', ['cypher', 'neon', 'omen', 'skye', 'waylay'], 8, 75.0],
+    ['cn1', 'haven', ['cypher', 'neon', 'omen', 'skye', 'waylay'], 7, 85.7],
+    ['cn1', 'lotus', ['cypher', 'fade', 'neon', 'omen', 'waylay'], 7, 71.4],
+    ['cn1', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 6, 16.7],
+    ['cn1', 'split', ['jett', 'omen', 'raze', 'skye', 'viper'], 6, 100.0],
+    ['kemea', 'split', ['astra', 'fade', 'raze', 'viper', 'yoru'], 9, 77.8],
+    ['kemea', 'haven', ['cypher', 'neon', 'omen', 'sova', 'yoru'], 8, 75.0],
+    ['kemea', 'haven', ['killjoy', 'omen', 'sova', 'viper', 'yoru'], 6, 16.7],
+    ['kemea', 'bind', ['brimstone', 'fade', 'raze', 'viper', 'yoru'], 5, 40.0],
+    ['kemea', 'bind', ['brimstone', 'raze', 'skye', 'tejo', 'viper'], 5, 20.0],
+    ['kemea', 'abyss', ['astra', 'brimstone', 'sova', 'waylay', 'yoru'], 4, 50.0],
+    ['kemea', 'abyss', ['astra', 'jett', 'kayo', 'sova', 'vyse'], 4, 75.0],
+    ['kemea', 'abyss', ['astra', 'sova', 'veto', 'waylay', 'yoru'], 4, 25.0],
+    ['kemea', 'abyss', ['cypher', 'omen', 'sova', 'waylay', 'yoru'], 4, 75.0],
+    ['kemea', 'breeze', ['astra', 'jett', 'sova', 'viper', 'yoru'], 4, 25.0],
+    ['kpac', 'split', ['fade', 'omen', 'raze', 'viper', 'yoru'], 17, 58.8],
+    ['kpac', 'breeze', ['astra', 'jett', 'sova', 'viper', 'yoru'], 14, 42.9],
+    ['kpac', 'bind', ['brimstone', 'fade', 'raze', 'viper', 'yoru'], 7, 57.1],
+    ['kpac', 'pearl', ['astra', 'killjoy', 'neon', 'sova', 'yoru'], 7, 57.1],
+    ['kpac', 'split', ['fade', 'neon', 'omen', 'viper', 'yoru'], 7, 42.9],
+    ['kpac', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 5, 40.0],
+    ['kpac', 'bind', ['brimstone', 'fade', 'viper', 'waylay', 'yoru'], 4, 75.0],
+    ['kpac', 'haven', ['cypher', 'jett', 'omen', 'sova', 'yoru'], 4, 25.0],
+    ['kpac', 'pearl', ['astra', 'chamber', 'neon', 'sova', 'tejo'], 4, 50.0],
+    ['kpac', 'abyss', ['astra', 'omen', 'sova', 'veto', 'yoru'], 3, 100.0],
+    ['kam', 'breeze', ['astra', 'jett', 'sova', 'viper', 'yoru'], 10, 60.0],
+    ['kam', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 10, 50.0],
+    ['kam', 'bind', ['brimstone', 'chamber', 'skye', 'viper', 'waylay'], 9, 66.7],
+    ['kam', 'bind', ['brimstone', 'fade', 'viper', 'waylay', 'yoru'], 7, 28.6],
+    ['kam', 'split', ['fade', 'omen', 'viper', 'waylay', 'yoru'], 7, 57.1],
+    ['kam', 'corrode', ['kayo', 'omen', 'sova', 'viper', 'waylay'], 5, 60.0],
+    ['kam', 'breeze', ['astra', 'neon', 'sova', 'viper', 'yoru'], 4, 50.0],
+    ['kam', 'pearl', ['astra', 'chamber', 'kayo', 'neon', 'tejo'], 4, 50.0],
+    ['kam', 'split', ['omen', 'sage', 'skye', 'viper', 'waylay'], 4, 50.0],
+    ['kam', 'abyss', ['astra', 'breach', 'sova', 'veto', 'yoru'], 3, 66.7],
+    ['kcn', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'viper'], 14, 42.9],
+    ['kcn', 'bind', ['brimstone', 'fade', 'raze', 'viper', 'yoru'], 9, 44.4],
+    ['kcn', 'pearl', ['astra', 'killjoy', 'neon', 'sova', 'yoru'], 8, 37.5],
+    ['kcn', 'abyss', ['astra', 'sova', 'veto', 'waylay', 'yoru'], 7, 57.1],
+    ['kcn', 'abyss', ['astra', 'breach', 'omen', 'tejo', 'waylay'], 6, 66.7],
+    ['kcn', 'split', ['fade', 'omen', 'viper', 'waylay', 'yoru'], 6, 66.7],
+    ['kcn', 'corrode', ['fade', 'neon', 'omen', 'viper', 'yoru'], 5, 40.0],
+    ['kcn', 'haven', ['cypher', 'neon', 'omen', 'sova', 'yoru'], 5, 60.0],
+    ['kcn', 'pearl', ['astra', 'fade', 'killjoy', 'waylay', 'yoru'], 5, 80.0],
+    ['kcn', 'split', ['fade', 'neon', 'omen', 'viper', 'yoru'], 5, 20.0],
+    ['kr', 'haven', ['fade', 'jett', 'omen', 'phoenix', 'vyse'], 2, 0.0, 'DRX 아카데미'],
+    ['kr', 'haven', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 6, 66.7, 'T1 아카데미 · 온사이드'],
+    ['kr', 'lotus', ['cypher', 'fade', 'omen', 'phoenix', 'raze'], 3, 66.7, 'DRX 아카데미'],
+    ['kr', 'lotus', ['omen', 'raze', 'skye', 'vyse', 'waylay'], 1, 0.0, 'T1 아카데미'],
+    ['kr', 'ascent', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 2, 50.0, 'DRX 아카데미 · T1 아카데미'],
+    ['kr', 'haven', ['chamber', 'fade', 'neon', 'omen', 'phoenix'], 1, 0.0, '엑스캐스트'],
+    ['kr', 'split', ['neon', 'omen', 'skye', 'viper', 'waylay'], 3, 100.0, '온사이드'],
+    ['kr', 'split', ['chamber', 'omen', 'raze', 'skye', 'waylay'], 1, 0.0, '엑스캐스트'],
+    ['kr', 'fracture', ['astra', 'cypher', 'raze', 'skye', 'tejo'], 2, 0.0, '디플러스'],
+    ['kr', 'fracture', ['breach', 'brimstone', 'killjoy', 'raze', 'skye'], 1, 100.0, '아레테'],
+    ['kr', 'haven', ['cypher', 'jett', 'omen', 'sova', 'waylay'], 2, 50.0, '디플러스'],
+    ['kr', 'haven', ['astra', 'chamber', 'neon', 'phoenix', 'sova'], 3, 66.7, '아레테'],
+    ['kr', 'split', ['fade', 'neon', 'omen', 'phoenix', 'viper'], 2, 0.0, '아레테'],
+    ['kr', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 3, 66.7, '온사이드'],
+    ['kr', 'lotus', ['jett', 'omen', 'raze', 'skye', 'vyse'], 5, 40.0, '아레테 · 엑스캐스트 · 디플러스'],
+    ['kr', 'breeze', ['neon', 'omen', 'phoenix', 'sova', 'viper'], 1, 0.0, '엑스캐스트'],
+    ['kr', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 3, 33.3, '디플러스'],
+    ['kr', 'breeze', ['jett', 'neon', 'omen', 'sova', 'viper'], 1, 100.0, '온사이드'],
+    ['kr', 'ascent', ['chamber', 'kayo', 'neon', 'omen', 'sova'], 1, 100.0, '온사이드'],
+    ['kr', 'ascent', ['jett', 'omen', 'sova', 'vyse', 'waylay'], 1, 0.0, '디플러스'],
+    ['kr', 'fracture', ['breach', 'brimstone', 'neon', 'tejo', 'vyse'], 1, 100.0, '온사이드'],
+    ['kr', 'fracture', ['breach', 'brimstone', 'cypher', 'gekko', 'neon'], 1, 0.0, '온사이드'],
+    ['kr', 'fracture', ['brimstone', 'cypher', 'fade', 'phoenix', 'raze'], 1, 100.0, 'DRX 아카데미'],
+    ['kr', 'ascent', ['cypher', 'jett', 'neon', 'omen', 'sova'], 1, 0.0, '젠지 글로벌 아카데미'],
+    ['kr', 'ascent', ['omen', 'sova', 'veto', 'viper', 'waylay'], 1, 100.0, '디플러스'],
+    ['kr', 'split', ['jett', 'omen', 'raze', 'skye', 'viper'], 2, 50.0, '젠지 글로벌 아카데미 · 디플러스'],
+    ['kr', 'pearl', ['astra', 'chamber', 'jett', 'sova', 'tejo'], 1, 100.0, '디플러스'],
+    ['kr', 'pearl', ['astra', 'fade', 'jett', 'killjoy', 'phoenix'], 1, 0.0, 'DRX 아카데미'],
+    ['kr', 'breeze', ['jett', 'omen', 'phoenix', 'sova', 'viper'], 1, 100.0, 'DRX 아카데미'],
+    ['krpro', 'abyss', ['cypher', 'omen', 'sova', 'waylay', 'yoru'], 5, 40.0, '농심 레드포스 · 키움 DRX'],
+    ['krpro', 'split', ['fade', 'neon', 'omen', 'viper', 'yoru'], 4, 50.0, '농심 레드포스'],
+    ['krpro', 'lotus', ['chamber', 'fade', 'omen', 'raze', 'vyse'], 2, 0.0, '키움 DRX'],
+    ['krpro', 'ascent', ['cypher', 'jett', 'omen', 'phoenix', 'sova'], 1, 100.0, '키움 DRX'],
+    ['krpro', 'ascent', ['cypher', 'neon', 'omen', 'sova', 'yoru'], 3, 33.3, '젠지 · 농심 레드포스'],
+    ['krpro', 'summit', ['chamber', 'fade', 'neon', 'omen', 'sage'], 2, 100.0, '젠지 · T1'],
+    ['krpro', 'summit', ['astra', 'fade', 'neon', 'viper', 'yoru'], 1, 0.0, '농심 레드포스'],
+    ['krpro', 'sunset', ['chamber', 'fade', 'neon', 'omen', 'sage'], 1, 0.0, '젠지'],
+    ['krpro', 'sunset', ['cypher', 'omen', 'sova', 'waylay', 'yoru'], 2, 100.0, '농심 레드포스'],
+    ['krpro', 'haven', ['killjoy', 'neon', 'omen', 'sova', 'yoru'], 4, 25.0, '농심 레드포스'],
+    ['krpro', 'lotus', ['neon', 'omen', 'raze', 'skye', 'vyse'], 1, 0.0, '농심 레드포스'],
+    ['krpro', 'abyss', ['astra', 'jett', 'kayo', 'sova', 'vyse'], 1, 0.0, '온사이드'],
+    ['krpro', 'ascent', ['cypher', 'neon', 'omen', 'phoenix', 'sova'], 1, 0.0, '온사이드'],
+    ['krpro', 'lotus', ['chamber', 'fade', 'neon', 'omen', 'viper'], 7, 71.4, 'T1'],
+    ['krpro', 'abyss', ['brimstone', 'omen', 'sova', 'waylay', 'yoru'], 1, 100.0, 'T1'],
+    ['krpro', 'lotus', ['fade', 'neon', 'omen', 'raze', 'vyse'], 2, 0.0, '젠지 · 키움 DRX'],
+    ['krpro', 'split', ['astra', 'fade', 'neon', 'raze', 'vyse'], 1, 0.0, '젠지'],
+    ['krpro', 'split', ['fade', 'omen', 'raze', 'viper', 'yoru'], 2, 50.0, 'T1'],
+    ['krpro', 'haven', ['cypher', 'neon', 'omen', 'sova', 'yoru'], 2, 50.0, 'T1'],
+    ['krpro', 'ascent', ['jett', 'omen', 'sova', 'vyse', 'yoru'], 1, 0.0, 'T1'],
+    ['krpro', 'fracture', ['breach', 'brimstone', 'cypher', 'neon', 'raze'], 1, 0.0, '키움 DRX'],
+    ['krpro', 'pearl', ['astra', 'killjoy', 'neon', 'sova', 'tejo'], 1, 0.0, 'T1'],
+    ['krpro', 'lotus', ['fade', 'killjoy', 'neon', 'omen', 'viper'], 2, 0.0, 'T1'],
+    ['krpro', 'pearl', ['astra', 'jett', 'kayo', 'killjoy', 'tejo'], 1, 0.0, '키움 DRX'],
+    ['krpro', 'pearl', ['astra', 'chamber', 'fade', 'neon', 'phoenix'], 1, 100.0, '농심 레드포스'],
+    ['krpro', 'split', ['astra', 'jett', 'raze', 'skye', 'vyse'], 2, 50.0, '키움 DRX'],
+    ['krpro', 'haven', ['cypher', 'jett', 'neon', 'omen', 'sova'], 1, 100.0, '키움 DRX'],
+    ['krpro', 'haven', ['chamber', 'neon', 'omen', 'phoenix', 'sova'], 1, 100.0, 'T1'],
+    ['krpro', 'breeze', ['harbor', 'kayo', 'neon', 'sova', 'viper'], 2, 50.0, 'T1'],
+    ['krpro', 'ascent', ['jett', 'omen', 'sova', 'vyse', 'waylay'], 1, 0.0, '키움 DRX'],
+    ['krpro', 'breeze', ['harbor', 'jett', 'kayo', 'sova', 'viper'], 1, 100.0, '키움 DRX'],
+    ['krpro', 'split', ['fade', 'neon', 'omen', 'raze', 'viper'], 1, 0.0, 'T1'],
+    ['krpro', 'ascent', ['jett', 'kayo', 'killjoy', 'omen', 'sova'], 1, 100.0, 'T1'],
+    ['krpro', 'abyss', ['harbor', 'neon', 'omen', 'sova', 'yoru'], 1, 100.0, '농심 레드포스'],
+    ['krpro', 'summit', ['chamber', 'fade', 'harbor', 'neon', 'sage'], 2, 0.0, 'T1 · 농심 레드포스'],
+    ['krpro', 'sunset', ['cypher', 'fade', 'neon', 'omen', 'yoru'], 1, 100.0, '농심 레드포스'],
+    ['krpro', 'ascent', ['chamber', 'neon', 'omen', 'sage', 'sova'], 3, 0.0, '농심 레드포스 · T1'],
+    ['krpro', 'abyss', ['harbor', 'omen', 'sova', 'waylay', 'yoru'], 1, 100.0, 'T1']
+  ].map(function (c) {
+    COMBO_COUNTER[c[0]] = (COMBO_COUNTER[c[0]] || 0) + 1;
+    return { id: c[0] + '-' + COMBO_COUNTER[c[0]], ev: c[0], map: c[1], agents: c[2], played: c[3], win: c[4], team: c[5] || '' };
+  });
+  var COMBO_BY_ID = {};
+  COMBOS.forEach(function (c) { COMBO_BY_ID[c.id] = c; });
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 유틸 ---------- */
+  function $(s) { return document.querySelector(s); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function rnd(n) {
+    var a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return Math.floor((a[0] / 4294967296) * n);
+  }
+  function pick(arr) { return arr[rnd(arr.length)]; }
+  function fmtSens(v) {
+    var t = String(parseFloat(v.toFixed(4)));
+    if (t.indexOf('.') < 0) return t + '.00';
+    return t.split('.')[1].length < 2 ? t + '0' : t;
+  }
+
+  /* ---------- 상태 ---------- */
+  var state = {
+    nicks: [],
+    results: {},
+    selected: null,
+    tab: 'agent',
+    roles: { controller: true, duelist: true, initiator: true, sentinel: true },
+    xkinds: { pro: true, shape: true, ent: true },
+    sens: { min: 0.25, max: 0.6, step: 0.01 },
+    sensMode: 'range',
+    wkinds: { sidearm: true, smg: true, shotgun: true, rifle: true, sniper: true, mg: true },
+    maps: (function () { var o = {}; MAPS.forEach(function (m) { o[m.key] = m.comp; }); return o; })(),
+    mapHistory: [],
+    mapNoRepeat: true,
+    excluded: {},
+    agentMode: 'single',
+    comboEvents: { sant: true, lon: true, champ: true, pac2: true, emea2: true, kr: true, krpro: true, am2: true, cn2: true, am1: true, emea1: true, pac1: true, cn1: true, kemea: true, kpac: true, kam: true, kcn: true },
+    comboCurMap: false,
+    teamCombo: {},
+    teams: {}
+  };
+  var storageOK = true;
+  var spinning = false;
+  var pendingDelete = null;
+  var pendingDeleteTimer = null;
+  var pendingClear = false;
+  var pendingClearTimer = null;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (Array.isArray(d.nicks)) {
+        state.nicks = d.nicks.filter(function (n) {
+          return n && typeof n.id === 'string' && typeof n.name === 'string';
+        }).slice(0, MAX_NICKS).map(function (n) {
+          var t = Math.round(Number(n.tier));
+          n.tier = t >= 1 && t <= 5 ? t : 3;
+          return n;
+        });
+      }
+      if (d.results && typeof d.results === 'object') {
+        Object.keys(d.results).forEach(function (id) {
+          if (state.nicks.some(function (n) { return n.id === id; }) && d.results[id] && typeof d.results[id] === 'object') {
+            var r = d.results[id];
+            var clean = {};
+            if (typeof r.agent === 'string' && AGENT_BY_KEY[r.agent]) { clean.agent = r.agent; clean.agentAt = r.agentAt; }
+            if (typeof r.xh === 'string' && XH_BY_ID[r.xh]) { clean.xh = r.xh; clean.xhAt = r.xhAt; }
+            if (typeof r.sens === 'number' && r.sens > 0 && r.sens <= 5) {
+              clean.sens = r.sens; clean.sensAt = r.sensAt;
+              if (typeof r.sensPro === 'string' && PRO_SENS_BY_NAME[r.sensPro] && typeof r.dpi === 'number') { clean.sensPro = r.sensPro; clean.dpi = r.dpi; }
+            }
+            ['sidearm', 'primary'].forEach(function (k) {
+              var w = typeof r[k] === 'string' ? WEAPON_BY_KEY[r[k]] : null;
+              if (w && (k === 'sidearm') === (w.cat === 'sidearm')) { clean[k] = r[k]; clean[k + 'At'] = r[k + 'At']; }
+            });
+            if (typeof r.weapon === 'string' && WEAPON_BY_KEY[r.weapon]) {
+              var lk = WEAPON_BY_KEY[r.weapon].cat === 'sidearm' ? 'sidearm' : 'primary';
+              if (!clean[lk]) { clean[lk] = r.weapon; clean[lk + 'At'] = r.weaponAt; }
+            }
+            if (typeof r.loadout === 'string' && LOADOUT_BY_KEY[r.loadout]) { clean.loadout = r.loadout; clean.loadoutAt = r.loadoutAt; }
+            state.results[id] = clean;
+          }
+        });
+      }
+      if (typeof d.selected === 'string' && state.nicks.some(function (n) { return n.id === d.selected; })) state.selected = d.selected;
+      if (d.roles && typeof d.roles === 'object') {
+        Object.keys(state.roles).forEach(function (r) { if (typeof d.roles[r] === 'boolean') state.roles[r] = d.roles[r]; });
+      }
+      if (d.xkinds && typeof d.xkinds === 'object') {
+        Object.keys(state.xkinds).forEach(function (r) { if (typeof d.xkinds[r] === 'boolean') state.xkinds[r] = d.xkinds[r]; });
+      }
+      if (d.wkinds && typeof d.wkinds === 'object') {
+        Object.keys(state.wkinds).forEach(function (k) { if (typeof d.wkinds[k] === 'boolean') state.wkinds[k] = d.wkinds[k]; });
+      }
+      if (d.maps && typeof d.maps === 'object') {
+        MAPS.forEach(function (m) { if (typeof d.maps[m.key] === 'boolean') state.maps[m.key] = d.maps[m.key]; });
+      }
+      if (Array.isArray(d.mapHistory)) {
+        state.mapHistory = d.mapHistory.filter(function (k) { return typeof k === 'string' && MAP_BY_KEY[k]; }).slice(-20);
+      }
+      if (typeof d.mapNoRepeat === 'boolean') state.mapNoRepeat = d.mapNoRepeat;
+      if (d.excluded && typeof d.excluded === 'object') {
+        Object.keys(d.excluded).forEach(function (id) {
+          if (!state.nicks.some(function (n) { return n.id === id; }) || !Array.isArray(d.excluded[id])) return;
+          var keys = d.excluded[id].filter(function (k, i, a) { return typeof k === 'string' && AGENT_BY_KEY[k] && a.indexOf(k) === i; });
+          if (keys.length) state.excluded[id] = keys;
+        });
+      }
+      if (d.sensMode === 'pro' || d.sensMode === 'range') state.sensMode = d.sensMode;
+      if (d.agentMode === 'combo' || d.agentMode === 'single') state.agentMode = d.agentMode;
+      if (d.comboEvents && typeof d.comboEvents === 'object') {
+        Object.keys(state.comboEvents).forEach(function (k) { if (typeof d.comboEvents[k] === 'boolean') state.comboEvents[k] = d.comboEvents[k]; });
+      }
+      if (typeof d.comboCurMap === 'boolean') state.comboCurMap = d.comboCurMap;
+      if (d.teamCombo && typeof d.teamCombo === 'object') {
+        ['A', 'B'].forEach(function (t) { if (typeof d.teamCombo[t] === 'string' && COMBO_BY_ID[d.teamCombo[t]]) state.teamCombo[t] = d.teamCombo[t]; });
+      }
+      if (d.sens && typeof d.sens === 'object') {
+        var mn = Number(d.sens.min), mx = Number(d.sens.max), st = Number(d.sens.step);
+        if (mn >= 0.0001 && mx <= 5 && mn <= mx && [0.0001, 0.001, 0.01, 0.05, 0.1].indexOf(st) >= 0) state.sens = { min: mn, max: mx, step: st };
+      }
+      if (d.teams && typeof d.teams === 'object') {
+        Object.keys(d.teams).forEach(function (id) {
+          if ((d.teams[id] === 'A' || d.teams[id] === 'B') && state.nicks.some(function (n) { return n.id === id; })) state.teams[id] = d.teams[id];
+        });
+      }
+    } catch (e) { /* 저장된 값이 없거나 읽을 수 없으면 빈 상태로 시작 */ }
+  }
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        nicks: state.nicks,
+        results: state.results,
+        selected: state.selected,
+        roles: state.roles,
+        xkinds: state.xkinds,
+        sens: state.sens,
+        sensMode: state.sensMode,
+        wkinds: state.wkinds,
+        maps: state.maps,
+        mapHistory: state.mapHistory,
+        mapNoRepeat: state.mapNoRepeat,
+        excluded: state.excluded,
+        agentMode: state.agentMode,
+        comboEvents: state.comboEvents,
+        comboCurMap: state.comboCurMap,
+        teamCombo: state.teamCombo,
+        teams: state.teams
+      }));
+      storageOK = true;
+    } catch (e) { storageOK = false; }
+  }
+  function testStorage() {
+    try {
+      localStorage.setItem(KEY + '-t', '1');
+      localStorage.removeItem(KEY + '-t');
+    } catch (e) { storageOK = false; }
+  }
+
+  function selectedNick() {
+    for (var i = 0; i < state.nicks.length; i++) if (state.nicks[i].id === state.selected) return state.nicks[i];
+    return null;
+  }
+
+  /* ---------- 조준점 코드 해석과 미리보기 ---------- */
+  var PRESET_COLORS = ['#ffffff', '#00ff00', '#7fff00', '#dfff00', '#ffff00', '#00ffff', '#ff00ff', '#ff0000'];
+  var parseCache = {};
+
+  function parseCode(code) {
+    if (parseCache[code]) return parseCache[code];
+    var t = code.split(';');
+    var P = {};
+    var sec = null;
+    var i = 1;
+    while (i < t.length) {
+      var k = t[i];
+      if (k === 'P' || k === 'A' || k === 'S') { sec = k; i++; continue; }
+      if (sec === 'P') P[k] = t[i + 1];
+      i += 2;
+    }
+    function num(key, d) {
+      if (P[key] === undefined) return d;
+      var v = parseFloat(P[key]);
+      return isNaN(v) ? d : v;
+    }
+    var ci = P.c === undefined ? undefined : parseInt(P.c, 10);
+    var custom = null;
+    if (P.u && /^[0-9a-fA-F]{6,8}$/.test(P.u)) custom = '#' + P.u.slice(0, 6);
+    var color;
+    if (ci === 8) color = custom || '#ffffff';
+    else if (custom && (ci === undefined || P.b === '1')) color = custom;
+    else color = PRESET_COLORS[ci !== undefined && ci >= 0 && ci < 8 ? ci : 1];
+
+    var outline = { op: P.h === '0' ? 0 : (P.o !== undefined ? num('o', 0.5) : 0.5), th: num('t', 1) };
+    var dot = P.d === '1' ? { size: num('z', 2), op: num('a', 1) } : null;
+
+    function lines(pre, needLen) {
+      if (P[pre + 'b'] === '0') return null;
+      if (needLen && P[pre + 'l'] === undefined) return null;
+      var len = num(pre + 'l', 4);
+      var lenV = (P[pre + 'g'] === '1' && P[pre + 'v'] !== undefined) ? num(pre + 'v', len) : len;
+      var g = { len: len, lenV: lenV, th: num(pre + 't', 1), off: num(pre + 'o', pre === '1' ? 10 : 2), op: num(pre + 'a', 1) };
+      if (g.len <= 0 && g.lenV <= 0) return null;
+      return g;
+    }
+    var q = { color: color, outline: outline, dot: dot, inner: lines('0', false), outer: lines('1', true) };
+    parseCache[code] = q;
+    return q;
+  }
+
+  function crossSVG(code, size) {
+    var q = parseCode(code);
+    var bars = [];
+    function add(g) {
+      if (!g) return;
+      if (g.len > 0) bars.push([-(g.off + g.len), -g.th / 2, g.len, g.th, g.op], [g.off, -g.th / 2, g.len, g.th, g.op]);
+      if (g.lenV > 0) bars.push([-g.th / 2, -(g.off + g.lenV), g.th, g.lenV, g.op], [-g.th / 2, g.off, g.th, g.lenV, g.op]);
+    }
+    add(q.inner);
+    add(q.outer);
+    if (q.dot) bars.push([-q.dot.size / 2, -q.dot.size / 2, q.dot.size, q.dot.size, q.dot.op]);
+    var ot = q.outline.th, oo = q.outline.op;
+    var ext = 1;
+    bars.forEach(function (r) {
+      ext = Math.max(ext, Math.abs(r[0]), Math.abs(r[1]), Math.abs(r[0] + r[2]), Math.abs(r[1] + r[3]));
+    });
+    var E = Math.max(14, Math.ceil(ext + (oo > 0 ? ot : 0) + 2));
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-E) + ' ' + (-E) + ' ' + (2 * E) + ' ' + (2 * E) + '" width="' + size + '" height="' + size + '" shape-rendering="crispEdges" role="img" aria-label="조준점 미리보기">';
+    if (oo > 0) {
+      bars.forEach(function (r) {
+        if (r[4] <= 0) return;
+        s += '<rect x="' + (r[0] - ot) + '" y="' + (r[1] - ot) + '" width="' + (r[2] + 2 * ot) + '" height="' + (r[3] + 2 * ot) + '" fill="#000" fill-opacity="' + oo + '"/>';
+      });
+    }
+    bars.forEach(function (r) {
+      if (r[4] <= 0) return;
+      s += '<rect x="' + r[0] + '" y="' + r[1] + '" width="' + r[2] + '" height="' + r[3] + '" fill="' + q.color + '" fill-opacity="' + r[4] + '"/>';
+    });
+    return s + '</svg>';
+  }
+
+  /* ---------- 릴 ---------- */
+  function agentCard(a) {
+    var r = ROLES[a.role];
+    return '<div class="card agent" style="--rc:' + r.c + '"><span class="rtag">' + r.ko + '</span><strong>' + esc(a.ko) + '</strong><em>' + esc(a.en) + '</em></div>';
+  }
+  function crossCard(x) {
+    return '<div class="card cross"><div class="xtile">' + crossSVG(x.code, 84) + '</div><span class="cl">' + esc(x.name) + '</span></div>';
+  }
+  function loadoutCard(l) {
+    return '<div class="card weapon loadout" style="--rc:var(--role-initiator)"><span class="rtag">무기 구성</span><strong>' + esc(l.ko) + '</strong><em>' + esc(l.sub) + '</em></div>';
+  }
+  function weaponCard(w) {
+    var c = WCATS[w.cat];
+    return '<div class="card weapon" style="--rc:' + c.c + '"><span class="rtag">' + c.ko + '</span><strong>' + esc(w.ko) + '</strong><em>' + esc(w.en) + '</em></div>';
+  }
+  function mapCard(m) {
+    return '<div class="card map" style="--rc:' + (m.comp ? 'var(--accent)' : 'var(--muted)') + '"><span class="rtag">' + (m.comp ? '경쟁전' : '풀 밖') + '</span><strong>' + esc(m.ko) + '</strong><em>' + esc(m.en) + '</em></div>';
+  }
+  function comboCard(c) {
+    var m = MAP_BY_KEY[c.map];
+    var ev = COMBO_EVENTS[c.ev];
+    return '<div class="card combo"><span class="ctitle">' + esc(m.ko) + '</span><span class="csub">' + esc(c.team || ev.ko) + ' · ' + c.played + '판</span><div class="clist">' +
+      c.agents.map(function (k) {
+        var a = AGENT_BY_KEY[k];
+        return '<span style="color:' + ROLES[a.role].c + '">' + esc(a.ko) + '</span>';
+      }).join('') + '</div></div>';
+  }
+  function sensCard(v) {
+    if (typeof v === 'object') {
+      return '<div class="card sens pro"><strong>' + esc(v.name) + '</strong><span>DPI ' + v.dpi + '</span><span>감도 ' + fmtSens(v.sens) + '</span></div>';
+    }
+    return '<div class="card sens"><strong>' + fmtSens(v) + '</strong><span>감도</span></div>';
+  }
+
+  function makeReel(root, cardHTML) {
+    var track = root.querySelector('.track');
+    var anim = 0;
+    var fin = null;
+    function show(items) {
+      track.innerHTML = items.map(cardHTML).join('');
+      track.style.transform = 'translateX(0px)';
+      fin = null;
+    }
+    function metrics() {
+      var first = track.children[0];
+      var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+      return { w: first.offsetWidth, step: first.offsetWidth + gap, left: first.offsetLeft };
+    }
+    function target(idx, jit) {
+      var m = metrics();
+      return -(m.left + idx * m.step + m.w / 2 + jit - root.clientWidth / 2);
+    }
+    function spin(items, idx, done) {
+      cancelAnimationFrame(anim);
+      show(items);
+      var m = metrics();
+      var jit = (Math.random() * 0.6 - 0.3) * m.w;
+      var to = target(idx, jit);
+      var dur = reduceMotion ? 700 : 5200;
+      var t0 = performance.now();
+      function frame(now) {
+        var p = Math.min(1, (now - t0) / dur);
+        var e = 1 - Math.pow(1 - p, 4);
+        track.style.transform = 'translateX(' + (to * e) + 'px)';
+        if (p < 1) {
+          anim = requestAnimationFrame(frame);
+        } else {
+          fin = { idx: idx, jit: jit };
+          track.children[idx].classList.add('win');
+          done();
+        }
+      }
+      anim = requestAnimationFrame(frame);
+    }
+    function relayout() {
+      if (fin) track.style.transform = 'translateX(' + target(fin.idx, fin.jit) + 'px)';
+    }
+    return { show: show, spin: spin, relayout: relayout };
+  }
+
+  var reels = {
+    agent: makeReel($('#reelAgent'), agentCard),
+    cross: makeReel($('#reelCross'), crossCard),
+    sens: makeReel($('#reelSens'), sensCard),
+    loadout: makeReel($('#reelLoadout'), loadoutCard),
+    sidearm: makeReel($('#reelSidearm'), weaponCard),
+    primary: makeReel($('#reelPrimary'), weaponCard),
+    map: makeReel($('#reelMap'), mapCard),
+    combo: makeReel($('#reelCombo'), comboCard)
+  };
+
+  /* ---------- 후보 ---------- */
+  function teamAgentsTaken(team, exceptId) {
+    var taken = {};
+    if (!team) return taken;
+    state.nicks.forEach(function (n) {
+      if (n.id === exceptId || state.teams[n.id] !== team) return;
+      var r = state.results[n.id];
+      if (r && r.agent) taken[r.agent] = true;
+    });
+    return taken;
+  }
+  function agentPool() {
+    var me = state.selected;
+    var taken = teamAgentsTaken(state.teams[me], me);
+    var ex = state.excluded[me] || [];
+    return AGENTS.filter(function (a) { return state.roles[a.role] && !taken[a.key] && ex.indexOf(a.key) < 0; });
+  }
+  function crossPool() {
+    var me = state.selected;
+    var taken = {};
+    state.nicks.forEach(function (n) {
+      if (n.id === me) return;
+      var r = state.results[n.id];
+      if (r && r.xh) taken[r.xh] = true;
+    });
+    return XH.filter(function (x) { return state.xkinds[x.kind] && !taken[x.id]; });
+  }
+  function sensValues() {
+    var s = state.sens;
+    var n = Math.floor((s.max - s.min) / s.step + 1e-9) + 1;
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(Math.round((s.min + s.step * i) * 10000) / 10000);
+    return out;
+  }
+
+  function proPool() {
+    var me = state.selected;
+    var taken = {};
+    state.nicks.forEach(function (n) {
+      if (n.id === me) return;
+      var r = state.results[n.id];
+      if (r && r.sensPro) taken[r.sensPro] = true;
+    });
+    return PRO_SENS.filter(function (p) { return !taken[p.name]; });
+  }
+  function sidearmPool() {
+    return WEAPONS.filter(function (w) { return w.cat === 'sidearm'; });
+  }
+  function primaryPool() {
+    return WEAPONS.filter(function (w) { return w.cat !== 'sidearm' && state.wkinds[w.cat]; });
+  }
+  function mapPool() {
+    return MAPS.filter(function (m) {
+      return state.maps[m.key] && !(state.mapNoRepeat && state.mapHistory.indexOf(m.key) >= 0);
+    });
+  }
+
+  /* 팀원에게 조합의 요원을 한 명씩 나눠 줄 수 있는지 찾는다 (제외한 요원은 피함). 불가능하면 null */
+  function planCombo(c, members) {
+    var target = Math.min(members.length, 5);
+    if (target < 1) return null;
+    var ms = shuffle(members.slice());
+    var used = {};
+    var out = {};
+    function rec(i, count) {
+      if (count === target) return true;
+      if (i >= ms.length || ms.length - i < target - count) return false;
+      var id = ms[i].id;
+      var ex = state.excluded[id] || [];
+      var order = shuffle(c.agents.slice());
+      for (var j = 0; j < order.length; j++) {
+        var a = order[j];
+        if (used[a] || ex.indexOf(a) >= 0) continue;
+        used[a] = true; out[id] = a;
+        if (rec(i + 1, count + 1)) return true;
+        delete used[a]; delete out[id];
+      }
+      return rec(i + 1, count);
+    }
+    return rec(0, 0) ? out : null;
+  }
+  function teamMembers(team) {
+    return state.nicks.filter(function (n) { return state.teams[n.id] === team; });
+  }
+  function comboPool() {
+    var team = state.teams[state.selected];
+    if (!team) return [];
+    var members = teamMembers(team);
+    var other = team === 'A' ? 'B' : 'A';
+    var lastMap = state.mapHistory[state.mapHistory.length - 1];
+    return COMBOS.filter(function (c) {
+      if (!state.comboEvents[c.ev]) return false;
+      if (state.comboCurMap && lastMap && c.map !== lastMap) return false;
+      if (state.teamCombo[other] === c.id) return false;
+      return !!planCombo(c, members);
+    });
+  }
+
+  /* ---------- 렌더 ---------- */
+  function tierOpts(sel) {
+    var s = '';
+    for (var t = 1; t <= 5; t++) s += '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '티어</option>';
+    return s;
+  }
+  function teamName(id) { return state.teams[id] ? state.teams[id] + '팀' : '미배정'; }
+
+  function renderNicks() {
+    var list = $('#nickList');
+    list.innerHTML = state.nicks.map(function (n) {
+      var r = state.results[n.id] || {};
+      var ag = r.agent && AGENT_BY_KEY[r.agent] ? AGENT_BY_KEY[r.agent].ko : '요원 -';
+      var cr = r.xh && XH_BY_ID[r.xh] ? '조준점 ✓' : '조준점 -';
+      var sn = typeof r.sens === 'number' ? '감도 ' + fmtSens(r.sens) : '감도 -';
+      var on = n.id === state.selected;
+      var exN = (state.excluded[n.id] || []).length;
+      var ask = pendingDelete === n.id;
+      return '<li class="nick-row' + (on ? ' on' : '') + '">' +
+        '<button class="nick-pick" type="button" data-pick="' + esc(n.id) + '" aria-pressed="' + on + '">' +
+        '<span class="nm">' + esc(n.name) + '</span><span class="sm">' + teamName(n.id) + ' · ' + esc(ag) + ' · ' + cr + ' · ' + sn + (exN ? ' · 제외 ' + exN : '') + '</span></button>' +
+        '<select class="tier-sel" data-tier="' + esc(n.id) + '" aria-label="' + esc(n.name) + ' 티어">' + tierOpts(n.tier) + '</select>' +
+        '<button class="nick-del' + (ask ? ' ask' : '') + '" type="button" data-del="' + esc(n.id) + '" aria-label="' + esc(n.name) + ' 삭제">' + (ask ? '삭제?' : '삭제') + '</button></li>';
+    }).join('');
+    $('#nickEmpty').hidden = state.nicks.length > 0;
+  }
+
+  function renderFilters() {
+    var html = Object.keys(ROLES).map(function (k) {
+      var r = ROLES[k];
+      return '<button class="chip" type="button" data-role="' + k + '" aria-pressed="' + state.roles[k] + '" style="--rc:' + r.c + '"><i></i>' + r.ko + '</button>';
+    }).join('');
+    html += '<span class="rule">같은 팀 안에서는 요원이 겹치지 않습니다</span>';
+    html += '<span class="pool" id="poolCount"></span>';
+    $('#filters').innerHTML = html;
+  }
+  function renderXFilters() {
+    var html = Object.keys(XKINDS).map(function (k) {
+      return '<button class="chip" type="button" data-xk="' + k + '" aria-pressed="' + state.xkinds[k] + '"><i></i>' + XKINDS[k] + '</button>';
+    }).join('');
+    html += '<span class="rule">다른 닉네임이 뽑은 조준점은 나오지 않습니다</span>';
+    html += '<span class="pool" id="xPoolCount"></span>';
+    $('#xfilters').innerHTML = html;
+  }
+  function renderEx() {
+    var n = selectedNick();
+    var sum = $('#exSum');
+    var body = $('#exBody');
+    if (!n) {
+      sum.textContent = '제외할 요원 (닉네임을 먼저 선택하세요)';
+      body.innerHTML = '';
+      return;
+    }
+    var list = state.excluded[n.id] || [];
+    sum.textContent = n.name + ' 님이 제외한 요원 ' + list.length + '명';
+    var html = Object.keys(ROLES).map(function (rk) {
+      var chips = AGENTS.filter(function (a) { return a.role === rk; }).map(function (a) {
+        return '<button class="xchip" type="button" data-ex="' + a.key + '" aria-pressed="' + (list.indexOf(a.key) >= 0) + '">' + esc(a.ko) + '</button>';
+      }).join('');
+      return '<div class="ex-row" style="--rc:' + ROLES[rk].c + '"><span class="rl">' + ROLES[rk].ko + '</span>' + chips + '</div>';
+    }).join('');
+    html += '<div class="ex-foot"><span>누른 요원은 ' + esc(n.name) + ' 님의 요원 룰렛에서 나오지 않습니다.</span>' +
+      '<button class="btn" type="button" id="exClear"' + (list.length ? '' : ' disabled') + '>모두 해제</button></div>';
+    body.innerHTML = html;
+  }
+
+  var comboTableBuilt = false;
+  function renderAgentMode() {
+    var combo = state.agentMode === 'combo';
+    $('#agentModeRow').innerHTML =
+      '<button class="chip" type="button" data-amode="single" aria-pressed="' + !combo + '"><i></i>개별 요원 모드</button>' +
+      '<button class="chip" type="button" data-amode="combo" aria-pressed="' + combo + '"><i></i>프로 조합 모드</button>' +
+      '<span class="rule">' + (combo ? '선택한 닉네임이 속한 팀 전원에게 프로 조합의 요원을 한 명씩 나눠 줍니다.' : '닉네임마다 요원 한 명을 뽑습니다.') + '</span>';
+    $('#filters').hidden = combo;
+    $('#comboFilters').hidden = !combo;
+    $('#reelAgent').hidden = combo;
+    $('#reelCombo').hidden = !combo;
+    $('#comboTable').hidden = !combo;
+    if (combo) renderComboFilters();
+    if (combo && !comboTableBuilt) {
+      comboTableBuilt = true;
+      $('#comboTableBody').innerHTML = '<div class="ptab-wrap"><table class="ptab"><thead><tr><th>대회</th><th>맵</th><th>요원 5명</th><th>판수</th><th>승률</th></tr></thead><tbody>' +
+        COMBOS.map(function (c) {
+          return '<tr><td>' + esc(COMBO_EVENTS[c.ev].ko) + (c.team ? ' · ' + esc(c.team) : '') + '</td><td>' + esc(MAP_BY_KEY[c.map].ko) + '</td><td class="ag">' +
+            c.agents.map(function (k) { return esc(AGENT_BY_KEY[k].ko); }).join(', ') + '</td><td class="n">' + c.played + '</td><td class="n">' + c.win.toFixed(1) + '%</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="ex-foot"><span>출처: VCT Reference의 대회별 "가장 많이 쓰인 조합" 표 — ' +
+        Object.keys(COMBO_EVENTS).map(function (k) { return '<a href="' + COMBO_EVENTS[k].url + '" target="_blank" rel="noopener">' + esc(COMBO_EVENTS[k].ko) + '</a>'; }).join(', ') +
+        '. 대회 전체 집계라 팀 이름은 없고, 판수는 그 조합이 나온 맵 수, 승률은 그 대회에서의 값이에요.</span></div>';
+    }
+  }
+  function renderComboFilters() {
+    var lastKey = state.mapHistory[state.mapHistory.length - 1];
+    var lastMap = lastKey && MAP_BY_KEY[lastKey];
+    var allOn = Object.keys(COMBO_EVENTS).every(function (k) { return state.comboEvents[k]; });
+    var html = '<button class="chip" type="button" data-cevall="1" aria-pressed="' + allOn + '"><i></i>전체 대회</button>';
+    html += Object.keys(COMBO_EVENTS).map(function (k) {
+      return '<button class="chip" type="button" data-cev="' + k + '" aria-pressed="' + state.comboEvents[k] + '"><i></i>' + esc(COMBO_EVENTS[k].ko) + '</button>';
+    }).join('');
+    html += '<label class="check"><input type="checkbox" id="comboCurMap"' + (state.comboCurMap && lastMap ? ' checked' : '') + (lastMap ? '' : ' disabled') + '> ' +
+      (lastMap ? '이번 경기 맵(' + esc(lastMap.ko) + ')만' : '이번 경기 맵만 (맵 룰렛을 먼저 돌리세요)') + '</label>';
+    html += '<span class="rule">두 팀이 같은 조합을 받지 않아요.</span>';
+    html += '<span class="pool" id="cPoolCount"></span>';
+    $('#comboFilters').innerHTML = html;
+  }
+
+  var proTableBuilt = false;
+  function showSensIdle() {
+    var items = [];
+    var pool = state.sensMode === 'pro' ? PRO_SENS : sensValues();
+    for (var i = 0; i < 14; i++) items.push(pool[rnd(pool.length)]);
+    reels.sens.show(items);
+  }
+  function renderSens(resetReel) {
+    var isPro = state.sensMode === 'pro';
+    $('#sensModeRow').innerHTML =
+      '<button class="chip" type="button" data-smode="range" aria-pressed="' + !isPro + '"><i></i>범위 모드</button>' +
+      '<button class="chip" type="button" data-smode="pro" aria-pressed="' + isPro + '"><i></i>프로 DPI·감도 모드</button>' +
+      '<span class="rule">' + (isPro ? '프로 선수의 DPI와 감도를 한 세트로 뽑습니다. 다른 닉네임이 뽑은 선수는 나오지 않아요.' : '정한 범위 안에서 감도를 뽑습니다.') + '</span>';
+    $('#sensRangeBox').hidden = isPro;
+    $('#proTable').hidden = !isPro;
+    if (isPro && !proTableBuilt) {
+      proTableBuilt = true;
+      $('#proTableBody').innerHTML = '<div class="ptab-wrap"><table class="ptab"><thead><tr><th>선수</th><th>팀</th><th>DPI</th><th>감도</th><th>eDPI</th><th>확인일</th></tr></thead><tbody>' +
+        PRO_SENS.map(function (p) {
+          return '<tr><td>' + esc(p.name) + '</td><td>' + esc(p.team) + '</td><td class="n">' + p.dpi + '</td><td class="n">' + fmtSens(p.sens) + '</td><td class="n">' + p.edpi + '</td><td class="n">' + p.at + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="ex-foot"><span>출처: <a href="https://prosettings.net/players/" target="_blank" rel="noopener">ProSettings</a> 선수 페이지(2026-10-23 확인). 확인일은 해당 페이지의 마지막 갱신일이라, 선수가 설정을 바꿨다면 다를 수 있어요.</span></div>';
+    }
+    updatePool();
+    if (resetReel) showSensIdle();
+  }
+
+  function renderWFilters() {
+    var html = Object.keys(WCATS).filter(function (k) { return k !== 'sidearm'; }).map(function (k) {
+      return '<button class="chip" type="button" data-wk="' + k + '" aria-pressed="' + state.wkinds[k] + '" style="--rc:' + WCATS[k].c + '"><i></i>' + WCATS[k].ko + '</button>';
+    }).join('');
+    html += '<span class="rule">주무기 종류를 고릅니다. 무기 구성에 주무기가 있을 때만 돌릴 수 있어요.</span>';
+    html += '<span class="pool" id="wPoolCount"></span>';
+    $('#wfilters').innerHTML = html;
+  }
+  function renderMapFilters() {
+    var html = MAPS.map(function (m) {
+      return '<button class="chip" type="button" data-map="' + m.key + '" aria-pressed="' + state.maps[m.key] + '"><i></i>' + m.ko + '</button>';
+    }).join('');
+    html += '<button class="chip" type="button" data-mpreset="comp" style="--rc:var(--muted)">경쟁전 맵만</button>';
+    html += '<button class="chip" type="button" data-mpreset="all" style="--rc:var(--muted)">전체 맵</button>';
+    html += '<label class="check"><input type="checkbox" id="mapNoRepeat"' + (state.mapNoRepeat ? ' checked' : '') + '> 이미 나온 맵 제외</label>';
+    html += '<button class="chip" type="button" id="mapClear" style="--rc:var(--muted)">기록 지우기</button>';
+    html += '<span class="pool" id="mPoolCount"></span>';
+    $('#mfilters').innerHTML = html;
+  }
+  function updatePool() {
+    var a = $('#poolCount');
+    if (a) a.textContent = '후보 ' + agentPool().length + ' / ' + AGENTS.length;
+    var x = $('#xPoolCount');
+    if (x) x.textContent = '후보 ' + crossPool().length + ' / ' + XH.length;
+    $('#sensCount').textContent = state.sensMode === 'pro' ? '후보 ' + proPool().length + ' / ' + PRO_SENS.length : '후보 ' + sensValues().length + '개';
+    var w = $('#wPoolCount');
+    if (w) w.textContent = '후보 ' + primaryPool().length + ' / ' + WEAPONS.filter(function (x) { return x.cat !== 'sidearm'; }).length;
+    var sp = $('#sPoolCount');
+    if (sp) sp.textContent = '후보 ' + sidearmPool().length + ' / ' + sidearmPool().length;
+    var mp = $('#mPoolCount');
+    if (mp) mp.textContent = '후보 ' + mapPool().length + ' / ' + MAPS.length;
+    var cp = $('#cPoolCount');
+    if (cp) cp.textContent = '후보 ' + comboPool().length + ' / ' + COMBOS.length;
+  }
+
+  function renderWho() {
+    var n = selectedNick();
+    $('#who').innerHTML = '<span class="lbl">대상</span>' +
+      (n ? '<strong>' + esc(n.name) + '</strong><span class="tag">' + teamName(n.id) + '</span><span class="tag">' + n.tier + '티어</span>' : '<span class="none">선택된 닉네임이 없습니다</span>');
+  }
+
+  function setStatus(text, warn) {
+    var s = $('#status');
+    s.textContent = text;
+    s.className = 'status' + (warn ? ' warn' : '');
+  }
+
+  var SPIN_LABEL = { agent: '요원 돌리기', cross: '조준점 돌리기', sens: '감도 돌리기', loadout: '무기 구성 돌리기', sidearm: '보조무기 돌리기', primary: '주무기 돌리기', map: '맵 돌리기' };
+  var KIND_LABEL = { agent: '요원', cross: '조준점', sens: '감도', loadout: '무기 구성', sidearm: '보조무기', primary: '주무기', map: '맵' };
+
+  function renderControls() {
+    var n = selectedNick();
+    var btn = $('#spinBtn');
+    var needTeam = !!n && state.tab === 'agent' && !state.teams[n.id];
+    var isGun = state.tab === 'sidearm' || state.tab === 'primary';
+    var curLo = n && isGun ? LOADOUT_BY_KEY[(state.results[n.id] || {}).loadout] : null;
+    var needLoadout = !!n && isGun && !curLo;
+    var gunSlot = state.tab === 'sidearm' ? 'side' : 'main';
+    var slotBlocked = !!curLo && curLo.slots.indexOf(gunSlot) < 0;
+    btn.disabled = spinning || (!n && state.tab !== 'map') || needTeam || needLoadout || slotBlocked;
+    btn.textContent = spinning ? '도는 중…' : (state.tab === 'agent' && state.agentMode === 'combo' ? '프로 조합 돌리기' : SPIN_LABEL[state.tab]);
+    ['#tabAgent', '#tabCross', '#tabSens', '#tabLoadout', '#tabSidearm', '#tabPrimary', '#tabMap'].forEach(function (id) { $(id).disabled = spinning; });
+    $('#sensApply').disabled = spinning || !n;
+    if (!spinning) {
+      if (!n && state.tab !== 'map') setStatus('왼쪽에서 닉네임을 추가하고 선택하면 돌릴 수 있습니다.', false);
+      else if (needTeam) setStatus('요원은 팀이 정해진 뒤에 돌릴 수 있습니다. 위에서 팀을 나눠 주세요.', true);
+      else if (needLoadout) setStatus('보조무기와 주무기는 무기 구성이 정해진 뒤에 돌릴 수 있습니다. 먼저 무기 구성 룰렛을 돌려 주세요.', true);
+      else if (slotBlocked) setStatus('현재 무기 구성(' + curLo.ko + ')에는 ' + (state.tab === 'sidearm' ? '보조무기' : '주무기') + '가 없어서 돌릴 수 없습니다.', false);
+      else setStatus('', false);
+    }
+  }
+
+  function renderResult() {
+    var box = $('#result');
+    var n = selectedNick();
+    var note = $('#tabNote');
+    if (state.tab === 'cross') {
+      note.hidden = false;
+      note.innerHTML = '미리보기는 코드를 해석한 근사치입니다. 코드를 복사해 인게임 조준점 설정에서 가져오면 정확한 모양을 볼 수 있습니다. 코드 출처: <a href="https://thespike.gg/valorant/crosshairs/codes" target="_blank" rel="noopener">thespike.gg</a>(프로 선수), <a href="https://dak.gg/valorant/crosshair" target="_blank" rel="noopener">dak.gg</a>(예능)';
+    } else if (state.tab === 'loadout') {
+      note.hidden = false;
+      note.textContent = '뽑힌 구성에 있는 칸의 무기만 쓰는 규칙으로 진행하세요. 보조무기와 주무기는 각각 따로 룰렛을 돌려 정합니다.';
+    } else if (state.tab === 'sidearm' || state.tab === 'primary') {
+      note.hidden = false;
+      note.textContent = '뽑힌 무기만 그 칸에서 쓰는 규칙으로 진행하세요. 무기 구성에 없는 칸은 룰렛을 돌릴 수 없어요.';
+    } else if (state.tab === 'map') {
+      note.hidden = false;
+      note.textContent = '표시된 경쟁전 맵은 2026년 V26 Act 6 기준 7개입니다. 로테이션이 바뀌면 칩을 눌러 후보를 직접 고르세요.';
+    } else if (state.tab === 'sens') {
+      note.hidden = false;
+      note.innerHTML = state.sensMode === 'pro'
+        ? '인게임 설정 > 일반 > 마우스에서 감도를 입력하고, 마우스 DPI는 마우스 소프트웨어에서 맞추세요. DPI가 다르면 같은 감도라도 체감이 크게 달라집니다. 선수 수치 출처: <a href="https://prosettings.net/players/" target="_blank" rel="noopener">ProSettings</a>'
+        : '인게임 설정 > 일반 > 마우스에서 감도를 입력하세요. 마우스 DPI가 다르면 체감이 달라집니다.';
+    } else if (state.tab === 'agent' && state.agentMode === 'combo') {
+      note.hidden = false;
+      note.innerHTML = '한국 챌린저스와 한국 1군 팀(키움 DRX, T1, 젠지, 농심 레드포스, 온사이드) 조합은 팀 이름이 붙은 실제 경기 조합이고(vlr.gg 경기 기록 중 일부, 1군은 퍼시픽 스테이지 1·2와 챔피언스), 판수는 그 조합이 나온 횟수, 승률은 그 판들의 결과입니다. 나머지는 ' + '2026년 마스터스·챔피언스와 지역 리그(킥오프, 스테이지 1·2)에서 맵별로 가장 많이 쓰인 5인 조합입니다. 팀이 5명보다 적으면 조합에서 팀원 수만큼만 배정돼요. 판수가 적어 승률은 참고용입니다. 출처: <a href="https://vct-reference.com/events/vct-2026-champions-2766" target="_blank" rel="noopener">VCT Reference</a>';
+    } else {
+      note.hidden = true;
+    }
+    if (state.tab === 'map') {
+      var lastKey = state.mapHistory[state.mapHistory.length - 1];
+      var last = lastKey && MAP_BY_KEY[lastKey];
+      if (!last) {
+        box.innerHTML = '<p class="empty">아직 맵을 돌리지 않았습니다.</p>';
+        return;
+      }
+      box.innerHTML = '<div><p class="rk">이번 경기 맵</p><div class="res-agent" style="--rc:' + (last.comp ? 'var(--accent)' : 'var(--muted)') + '"><strong>' + esc(last.ko) + '</strong><span>' + esc(last.en) + ' · <b>' + (last.comp ? '경쟁전 풀' : '풀 밖') + '</b></span></div></div>' +
+        '<div><p class="rk">지금까지 나온 맵</p><div class="mh">' +
+        state.mapHistory.map(function (k, i) { return '<span class="tag">' + (i + 1) + ' ' + esc(MAP_BY_KEY[k].ko) + '</span>'; }).join('') + '</div></div>';
+      return;
+    }
+    if (!n) { box.innerHTML = ''; return; }
+    if (state.tab === 'agent' && state.agentMode === 'combo') {
+      var cteam = state.teams[n.id];
+      if (!cteam) { box.innerHTML = '<p class="empty">팀을 먼저 나눠 주세요.</p>'; return; }
+      var cmb = COMBO_BY_ID[state.teamCombo[cteam]];
+      if (!cmb) { box.innerHTML = '<p class="empty">' + cteam + '팀은 아직 프로 조합을 뽑지 않았습니다.</p>'; return; }
+      var cev = COMBO_EVENTS[cmb.ev];
+      var cmap = MAP_BY_KEY[cmb.map];
+      var got = {};
+      var crows = teamMembers(cteam).map(function (x) {
+        var xr = state.results[x.id] || {};
+        var xa = xr.agent && AGENT_BY_KEY[xr.agent];
+        if (xa && cmb.agents.indexOf(xa.key) >= 0) got[xa.key] = true;
+        return '<li class="mem' + (x.id === state.selected ? ' on' : '') + '"><span class="mem-name">' + esc(x.name) + '</span>' +
+          (xa ? '<span class="mem-agent" style="color:' + ROLES[xa.role].c + '">' + esc(xa.ko) + '</span>' : '<span class="mem-agent dim">배정 없음</span>') + '</li>';
+      }).join('');
+      var left = cmb.agents.filter(function (k) { return !got[k]; }).map(function (k) { return AGENT_BY_KEY[k].ko; });
+      box.innerHTML = '<div><p class="rk">' + cteam + '팀의 프로 조합</p>' +
+        '<div class="res-agent" style="--rc:var(--accent)"><strong>' + esc(cmap.ko) + '</strong><span>' + esc(cev.ko) + (cmb.team ? ' · ' + esc(cmb.team) : '') + ' · ' + cmb.played + '판 · 승률 ' + cmb.win.toFixed(1) + '%</span></div>' +
+        '<div class="combo-tags">' + cmb.agents.map(function (k) { var a = AGENT_BY_KEY[k]; return '<span class="tag" style="color:' + ROLES[a.role].c + '">' + esc(a.ko) + '</span>'; }).join('') + '</div></div>' +
+        '<div class="combo-members"><p class="rk">요원 배정</p><ul class="mem-list">' + crows + '</ul>' +
+        (left.length ? '<p class="note">배정되지 않은 조합 요원: ' + esc(left.join(', ')) + '</p>' : '') + '</div>';
+      return;
+    }
+    var r = state.results[n.id] || {};
+    if (state.tab === 'agent') {
+      var a = r.agent && AGENT_BY_KEY[r.agent];
+      if (!a) {
+        box.innerHTML = '<p class="empty">' + esc(n.name) + '님은 아직 요원을 뽑지 않았습니다.</p>';
+        return;
+      }
+      var role = ROLES[a.role];
+      box.innerHTML = '<div><p class="rk">' + esc(n.name) + ' 의 요원</p>' +
+        '<div class="res-agent" style="--rc:' + role.c + '"><strong>' + esc(a.ko) + '</strong><span>' + esc(a.en) + ' · <b>' + role.ko + '</b> (' + role.en + ')</span></div></div>';
+    } else if (state.tab === 'loadout') {
+      var lo0 = LOADOUT_BY_KEY[r.loadout];
+      if (!lo0) {
+        box.innerHTML = '<p class="empty">' + esc(n.name) + '님은 아직 무기 구성을 뽑지 않았습니다.</p>';
+        return;
+      }
+      box.innerHTML = '<div><p class="rk">' + esc(n.name) + ' 의 무기 구성</p>' +
+        '<div class="res-agent" style="--rc:var(--role-initiator)"><strong>' + esc(lo0.ko) + '</strong><span>쓸 수 있는 칸: <b>' + esc(lo0.sub) + '</b></span></div></div>';
+    } else if (state.tab === 'sidearm' || state.tab === 'primary') {
+      var gunKey = state.tab === 'sidearm' ? r.sidearm : r.primary;
+      var wp0 = gunKey && WEAPON_BY_KEY[gunKey];
+      if (!wp0) {
+        box.innerHTML = '<p class="empty">' + esc(n.name) + '님은 아직 ' + (state.tab === 'sidearm' ? '보조무기를' : '주무기를') + ' 뽑지 않았습니다.</p>';
+        return;
+      }
+      box.innerHTML = '<div><p class="rk">' + esc(n.name) + ' 의 ' + (state.tab === 'sidearm' ? '보조무기' : '주무기') + '</p>' +
+        '<div class="res-agent" style="--rc:' + WCATS[wp0.cat].c + '"><strong>' + esc(wp0.ko) + '</strong><span>' + esc(wp0.en) + ' · <b>' + WCATS[wp0.cat].ko + '</b></span></div></div>';
+    } else if (state.tab === 'cross') {
+      var x = r.xh && XH_BY_ID[r.xh];
+      if (!x) {
+        box.innerHTML = '<p class="empty">' + esc(n.name) + '님은 아직 조준점을 뽑지 않았습니다.</p>';
+        return;
+      }
+      box.innerHTML = '<div class="xtile" style="width:176px;height:176px">' + crossSVG(x.code, 168) + '</div>' +
+        '<div class="xinfo"><p class="rk">' + esc(n.name) + ' 의 조준점</p>' +
+        '<div class="xname">' + esc(x.name) + '</div><div class="sub">' + esc(x.sub) + '</div>' +
+        '<div class="codebox"><input class="code" id="codeBox" readonly value="' + esc(x.code) + '" aria-label="조준점 코드">' +
+        '<button class="btn" id="copyBtn" type="button">코드 복사</button></div></div>';
+    } else {
+      if (typeof r.sens !== 'number') {
+        box.innerHTML = '<p class="empty">' + esc(n.name) + '님은 아직 감도를 정하지 않았습니다.</p>';
+        return;
+      }
+      var sp = r.sensPro && PRO_SENS_BY_NAME[r.sensPro];
+      box.innerHTML = '<div class="res-sens"><p class="rk">' + esc(n.name) + ' 의 감도</p><strong>' + fmtSens(r.sens) + '</strong>' +
+        (sp ? '<span>DPI <b>' + sp.dpi + '</b> · eDPI ' + sp.edpi + ' · ' + esc(sp.name) + ' (' + esc(sp.team) + ')</span>' : '<span>인게임 마우스 감도</span>') + '</div>';
+    }
+  }
+
+  function renderBoard() {
+    var board = $('#board');
+    board.innerHTML = state.nicks.map(function (n) {
+      var r = state.results[n.id] || {};
+      var a = r.agent && AGENT_BY_KEY[r.agent];
+      var x = r.xh && XH_BY_ID[r.xh];
+      var agentRow = a
+        ? '<span class="v" style="color:' + ROLES[a.role].c + '">' + esc(a.ko) + ' <span class="sub">' + ROLES[a.role].ko + '</span></span>'
+        : '<span class="v dim">아직 없음</span>';
+      var crossRow = x
+        ? '<span class="xtile" style="width:42px;height:42px;flex:none">' + crossSVG(x.code, 38) + '</span><span class="v">' + esc(x.name) + '</span>'
+        : '<span class="v dim">아직 없음</span>';
+      var lo = LOADOUT_BY_KEY[r.loadout];
+      var loadoutRow = lo
+        ? '<span class="v">' + esc(lo.ko) + '</span>'
+        : '<span class="v dim">아직 없음</span>';
+      var sd = r.sidearm && WEAPON_BY_KEY[r.sidearm];
+      var sideRow = sd
+        ? '<span class="v" style="color:' + WCATS[sd.cat].c + '">' + esc(sd.ko) + '</span>'
+        : '<span class="v dim">아직 없음</span>';
+      var wp = r.primary && WEAPON_BY_KEY[r.primary];
+      var weaponRow = wp
+        ? '<span class="v" style="color:' + WCATS[wp.cat].c + '">' + esc(wp.ko) + ' <span class="sub">' + WCATS[wp.cat].ko + '</span></span>'
+        : '<span class="v dim">아직 없음</span>';
+      var sensRow = typeof r.sens === 'number'
+        ? '<span class="v">' + fmtSens(r.sens) + (r.sensPro && PRO_SENS_BY_NAME[r.sensPro] ? ' <span class="sub">DPI ' + PRO_SENS_BY_NAME[r.sensPro].dpi + ' · ' + esc(r.sensPro) + '</span>' : '') + '</span>'
+        : '<span class="v dim">아직 없음</span>';
+      return '<button class="pcard' + (n.id === state.selected ? ' on' : '') + '" type="button" data-pick="' + esc(n.id) + '">' +
+        '<span class="pn">' + esc(n.name) + '</span>' +
+        '<span class="sub">' + n.tier + '티어 · ' + teamName(n.id) + '</span>' +
+        '<span class="prow"><span class="k">요원</span>' + agentRow + '</span>' +
+        '<span class="prow"><span class="k">조준점</span>' + crossRow + '</span>' +
+        '<span class="prow"><span class="k">감도</span>' + sensRow + '</span>' +
+        '<span class="prow"><span class="k">구성</span>' + loadoutRow + '</span>' +
+        '<span class="prow"><span class="k">보조</span>' + sideRow + '</span>' +
+        '<span class="prow"><span class="k">주무기</span>' + weaponRow + '</span></button>';
+    }).join('');
+    $('#boardEmpty').hidden = state.nicks.length > 0;
+    $('#clearBtn').hidden = state.nicks.length === 0;
+    $('#clearBtn').textContent = pendingClear ? '정말 초기화할까요? 한 번 더 누르세요' : '결과 초기화';
+  }
+
+  function renderTabs() {
+    ['agent', 'cross', 'sens', 'loadout', 'sidearm', 'primary', 'map'].forEach(function (k) {
+      var cap = k.charAt(0).toUpperCase() + k.slice(1);
+      $('#tab' + cap).setAttribute('aria-selected', String(state.tab === k));
+      $('#pane' + cap).hidden = state.tab !== k;
+    });
+  }
+
+  function renderTeams() {
+    var box = $('#teams');
+    var any = state.nicks.some(function (n) { return state.teams[n.id]; });
+    var split = $('#splitBtn');
+    split.disabled = spinning || state.nicks.length < 2;
+    split.textContent = any ? '팀 다시 나누기' : '팀 나누기';
+    var empty = $('#teamEmpty');
+    empty.hidden = any;
+    empty.textContent = state.nicks.length < 2
+      ? '닉네임을 2명 이상 추가하고 티어를 정한 뒤 팀을 나누세요.'
+      : '티어를 확인했으면 팀 나누기를 누르세요. 티어 합이 비슷하게 두 팀으로 나뉩니다.';
+    if (!any) { box.innerHTML = ''; return; }
+
+    function memRow(n, team) {
+      var r = state.results[n.id] || {};
+      var a = r.agent && AGENT_BY_KEY[r.agent];
+      var other = team === 'A' ? 'B' : 'A';
+      return '<li class="mem' + (n.id === state.selected ? ' on' : '') + '">' +
+        '<span class="tier">' + n.tier + '티어</span>' +
+        '<button class="mem-name" type="button" data-pick="' + esc(n.id) + '">' + esc(n.name) + '</button>' +
+        (a ? '<span class="mem-agent" style="color:' + ROLES[a.role].c + '">' + esc(a.ko) + '</span>' : '<span class="mem-agent dim">요원 -</span>') +
+        '<button class="mv" type="button" data-mv="' + esc(n.id) + '" data-to="' + other + '">' + other + '팀으로</button></li>';
+    }
+
+    var html = ['A', 'B'].map(function (t) {
+      var ms = state.nicks.filter(function (n) { return state.teams[n.id] === t; });
+      var sum = ms.reduce(function (s, n) { return s + n.tier; }, 0);
+      var avg = ms.length ? (sum / ms.length).toFixed(1) : '-';
+      return '<div class="team"><div class="team-h"><strong>' + t + '팀</strong><span class="sub">' + ms.length + '명 · 평균 ' + avg + '티어</span></div>' +
+        '<ul class="mem-list">' + ms.map(function (n) { return memRow(n, t); }).join('') + '</ul></div>';
+    }).join('');
+
+    var un = state.nicks.filter(function (n) { return !state.teams[n.id]; });
+    if (un.length) {
+      html += '<div class="team un"><div class="team-h"><strong>미배정</strong><span class="sub">나중에 추가한 닉네임입니다. 팀을 골라 주세요.</span></div><ul class="mem-list">' +
+        un.map(function (n) {
+          return '<li class="mem"><span class="tier">' + n.tier + '티어</span>' +
+            '<button class="mem-name" type="button" data-pick="' + esc(n.id) + '">' + esc(n.name) + '</button>' +
+            '<button class="mv" type="button" data-mv="' + esc(n.id) + '" data-to="A">A팀으로</button>' +
+            '<button class="mv" type="button" data-mv="' + esc(n.id) + '" data-to="B">B팀으로</button></li>';
+        }).join('') + '</ul></div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function setTeamStatus(text, warn) {
+    var s = $('#teamStatus');
+    s.textContent = text;
+    s.className = 'status' + (warn ? ' warn' : '');
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = rnd(i + 1);
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function tierSum(list) { return list.reduce(function (s, n) { return s + n.tier; }, 0); }
+  function splitScore(A, B) {
+    var s = Math.abs(tierSum(A) / A.length - tierSum(B) / B.length) * 100;
+    for (var t = 1; t <= 5; t++) {
+      var ca = A.filter(function (n) { return n.tier === t; }).length;
+      var cb = B.filter(function (n) { return n.tier === t; }).length;
+      s += Math.abs(ca - cb);
+    }
+    return s;
+  }
+  function splitTeams() {
+    if (spinning || state.nicks.length < 2) return;
+    var n = state.nicks.length;
+    var sizeA = Math.ceil(n / 2);
+    var best = Infinity;
+    var cands = [];
+    for (var i = 0; i < 3000; i++) {
+      var arr = shuffle(state.nicks.slice());
+      var A = arr.slice(0, sizeA);
+      var B = arr.slice(sizeA);
+      var sc = splitScore(A, B);
+      if (sc < best - 1e-9) { best = sc; cands = [[A, B]]; }
+      else if (Math.abs(sc - best) < 1e-9 && cands.length < 60) cands.push([A, B]);
+    }
+    var ch = pick(cands);
+    var first = rnd(2) === 0 ? 'A' : 'B';
+    var second = first === 'A' ? 'B' : 'A';
+    state.teams = {};
+    state.teamCombo = {};
+    ch[0].forEach(function (m) { state.teams[m.id] = first; });
+    ch[1].forEach(function (m) { state.teams[m.id] = second; });
+    Object.keys(state.results).forEach(function (id) {
+      if (state.results[id]) { delete state.results[id].agent; delete state.results[id].agentAt; }
+    });
+    save();
+    var ta = state.nicks.filter(function (m) { return state.teams[m.id] === 'A'; });
+    var tb = state.nicks.filter(function (m) { return state.teams[m.id] === 'B'; });
+    setTeamStatus('A팀 ' + ta.length + '명(평균 ' + (tierSum(ta) / (ta.length || 1)).toFixed(1) + '티어), B팀 ' + tb.length + '명(평균 ' + (tierSum(tb) / (tb.length || 1)).toFixed(1) + '티어)로 나눴습니다. 요원 결과는 새 팀 기준으로 비웠어요.', false);
+    renderAll();
+  }
+  function moveMember(id, to) {
+    if (spinning) return;
+    var nick = state.nicks.filter(function (m) { return m.id === id; })[0];
+    if (!nick || state.teams[id] === to) return;
+    state.teams[id] = to;
+    state.teamCombo = {};
+    var r = state.results[id];
+    var note = nick.name + ' 님을 ' + to + '팀으로 옮겼습니다.';
+    if (r && r.agent && teamAgentsTaken(to, id)[r.agent]) {
+      delete r.agent; delete r.agentAt;
+      note += ' 새 팀에 같은 요원이 있어 요원 결과는 비웠어요.';
+    }
+    save();
+    setTeamStatus(note, false);
+    renderAll();
+  }
+
+  function renderAll() {
+    renderTabs();
+    renderTeams();
+    renderNicks();
+    renderWho();
+    renderFilters();
+    renderAgentMode();
+    renderXFilters();
+    renderWFilters();
+    renderMapFilters();
+    renderEx();
+    renderSens(false);
+    renderControls();
+    renderResult();
+    renderBoard();
+    updatePool();
+  }
+
+  /* ---------- 동작 ---------- */
+  function hint(text, warn) {
+    var h = $('#nickHint');
+    h.textContent = text;
+    h.className = 'hint' + (warn ? ' warn' : '');
+  }
+
+  $('#nickForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (spinning) return;
+    var input = $('#nickInput');
+    var name = input.value.trim().slice(0, 16);
+    if (!name) { hint('닉네임을 입력하세요.', true); return; }
+    if (state.nicks.length >= MAX_NICKS) { hint('닉네임은 최대 ' + MAX_NICKS + '개까지 추가할 수 있습니다.', true); return; }
+    if (state.nicks.some(function (n) { return n.name.toLowerCase() === name.toLowerCase(); })) {
+      hint('이미 있는 닉네임입니다.', true);
+      return;
+    }
+    var id = 'n' + Date.now().toString(36) + rnd(46656).toString(36);
+    var tier = Number($('#tierInput').value);
+    state.nicks.push({ id: id, name: name, tier: tier >= 1 && tier <= 5 ? tier : 3 });
+    state.selected = id;
+    input.value = '';
+    hint(name + ' 추가됨', false);
+    save();
+    renderAll();
+    input.focus();
+  });
+
+  function clearDeleteAsk() {
+    pendingDelete = null;
+    clearTimeout(pendingDeleteTimer);
+  }
+  function clearClearAsk() {
+    pendingClear = false;
+    clearTimeout(pendingClearTimer);
+  }
+
+  function copyCode() {
+    var inp = $('#codeBox');
+    if (!inp) return;
+    var code = inp.value;
+    function done(ok) {
+      if (ok) setStatus('조준점 코드를 복사했습니다.', false);
+      else { setStatus('코드를 선택했습니다. Ctrl+C로 복사하세요.', true); inp.focus(); inp.select(); }
+    }
+    try {
+      navigator.clipboard.writeText(code).then(function () { done(true); }, function () { done(false); });
+    } catch (e) { done(false); }
+  }
+
+  function applyManualSens() {
+    var n = selectedNick();
+    if (!n || spinning) return;
+    var v = parseFloat($('#sensManual').value);
+    if (!(v >= 0.0001 && v <= 5)) { setStatus('감도는 0.0001에서 5 사이의 숫자로 입력하세요.', true); return; }
+    v = Math.round(v * 10000) / 10000;
+    var r = state.results[n.id] || {};
+    r.sens = v; r.sensAt = Date.now(); delete r.dpi; delete r.sensPro;
+    state.results[n.id] = r;
+    save();
+    $('#sensManual').value = '';
+    renderNicks(); renderResult(); renderBoard();
+    setStatus(n.name + ' 님의 감도를 ' + fmtSens(v) + '(으)로 정했습니다.', false);
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!(t instanceof Element)) return;
+
+    var pick_ = t.closest('[data-pick]');
+    var del = t.closest('[data-del]');
+    var role = t.closest('[data-role]');
+    var xk = t.closest('[data-xk]');
+    var tab = t.closest('[data-tab]');
+    var mv = t.closest('[data-mv]');
+    var splitHit = t.closest('#splitBtn');
+
+    if (pendingDelete && !del) { clearDeleteAsk(); renderNicks(); }
+    if (pendingClear && t.id !== 'clearBtn') { clearClearAsk(); renderBoard(); }
+
+    if (t.id === 'codeBox') { t.select(); return; }
+    if (t.id === 'copyBtn') { copyCode(); return; }
+    if (t.id === 'sensApply') { applyManualSens(); return; }
+    var smodeBtn = t.closest('[data-smode]');
+    if (smodeBtn) {
+      if (spinning) return;
+      state.sensMode = smodeBtn.getAttribute('data-smode') === 'pro' ? 'pro' : 'range';
+      save();
+      renderSens(true);
+      return;
+    }
+    var amodeBtn = t.closest('[data-amode]');
+    if (amodeBtn) {
+      if (spinning) return;
+      state.agentMode = amodeBtn.getAttribute('data-amode') === 'combo' ? 'combo' : 'single';
+      save();
+      renderAgentMode(); renderControls(); renderResult(); updatePool();
+      return;
+    }
+    var cevAll = t.closest('[data-cevall]');
+    if (cevAll) {
+      if (spinning) return;
+      var turnOn = !Object.keys(COMBO_EVENTS).every(function (k) { return state.comboEvents[k]; });
+      Object.keys(COMBO_EVENTS).forEach(function (k) { state.comboEvents[k] = turnOn; });
+      save();
+      renderComboFilters(); updatePool();
+      return;
+    }
+    var cevBtn = t.closest('[data-cev]');
+    if (cevBtn) {
+      if (spinning) return;
+      var cevKey = cevBtn.getAttribute('data-cev');
+      state.comboEvents[cevKey] = !state.comboEvents[cevKey];
+      save();
+      renderComboFilters(); updatePool();
+      return;
+    }
+    var exb = t.closest('[data-ex]');
+    if (exb || t.id === 'exClear') {
+      if (spinning) return;
+      var meId = state.selected;
+      if (!meId) return;
+      var exList = (state.excluded[meId] || []).slice();
+      var exKey = exb ? exb.getAttribute('data-ex') : null;
+      if (exb) {
+        var xi = exList.indexOf(exKey);
+        if (xi >= 0) exList.splice(xi, 1); else exList.push(exKey);
+      } else {
+        exList = [];
+      }
+      if (exList.length) state.excluded[meId] = exList; else delete state.excluded[meId];
+      save();
+      renderEx(); renderNicks(); updatePool();
+      if (exKey) { var again = $('[data-ex="' + exKey + '"]'); if (again) again.focus(); }
+      return;
+    }
+    var wk = t.closest('[data-wk]');
+    var mchip = t.closest('[data-map]');
+    var mpre = t.closest('[data-mpreset]');
+    if (wk || mchip || mpre || t.id === 'mapClear') {
+      if (spinning) return;
+      if (wk) {
+        var wkey = wk.getAttribute('data-wk');
+        state.wkinds[wkey] = !state.wkinds[wkey];
+        save();
+        renderWFilters();
+      } else {
+        if (mchip) {
+          var mkey = mchip.getAttribute('data-map');
+          state.maps[mkey] = !state.maps[mkey];
+        } else if (mpre) {
+          var preset = mpre.getAttribute('data-mpreset');
+          MAPS.forEach(function (m) { state.maps[m.key] = preset === 'all' ? true : m.comp; });
+        } else {
+          state.mapHistory = [];
+        }
+        save();
+        if (state.agentMode === 'combo') renderComboFilters();
+        renderMapFilters();
+        renderResult();
+      }
+      updatePool();
+      return;
+    }
+    if (splitHit) { splitTeams(); return; }
+    if (mv) { moveMember(mv.getAttribute('data-mv'), mv.getAttribute('data-to')); return; }
+
+    if (pick_) {
+      if (spinning) return;
+      state.selected = pick_.getAttribute('data-pick');
+      save();
+      renderTeams(); renderNicks(); renderWho(); renderEx(); renderControls(); renderResult(); renderBoard(); updatePool();
+      return;
+    }
+    if (del) {
+      if (spinning) return;
+      var id = del.getAttribute('data-del');
+      if (pendingDelete !== id) {
+        clearDeleteAsk();
+        pendingDelete = id;
+        pendingDeleteTimer = setTimeout(function () { pendingDelete = null; renderNicks(); }, 3000);
+        renderNicks();
+        return;
+      }
+      clearDeleteAsk();
+      state.nicks = state.nicks.filter(function (n) { return n.id !== id; });
+      delete state.results[id];
+      delete state.teams[id];
+      delete state.excluded[id];
+      if (state.selected === id) state.selected = state.nicks.length ? state.nicks[0].id : null;
+      save();
+      renderAll();
+      return;
+    }
+    if (role) {
+      if (spinning) return;
+      var k = role.getAttribute('data-role');
+      state.roles[k] = !state.roles[k];
+      save();
+      renderFilters();
+      updatePool();
+      return;
+    }
+    if (xk) {
+      if (spinning) return;
+      var kk = xk.getAttribute('data-xk');
+      state.xkinds[kk] = !state.xkinds[kk];
+      save();
+      renderXFilters();
+      updatePool();
+      return;
+    }
+    if (tab) {
+      if (spinning) return;
+      state.tab = tab.getAttribute('data-tab');
+      renderTabs(); renderControls(); renderResult();
+      return;
+    }
+    if (t.id === 'clearBtn') {
+      if (spinning) return;
+      if (!pendingClear) {
+        pendingClear = true;
+        pendingClearTimer = setTimeout(function () { pendingClear = false; renderBoard(); }, 3500);
+        renderBoard();
+        return;
+      }
+      clearClearAsk();
+      state.results = {};
+      state.teamCombo = {};
+      save();
+      renderTeams(); renderNicks(); renderResult(); renderBoard(); updatePool();
+    }
+  });
+
+  function syncSensInputs() {
+    $('#sensMin').value = state.sens.min;
+    $('#sensMax').value = state.sens.max;
+    $('#sensStep').value = String(state.sens.step);
+  }
+
+  document.addEventListener('change', function (e) {
+    var tg = e.target;
+    if (!(tg instanceof Element)) return;
+    if (tg.id === 'comboCurMap') {
+      state.comboCurMap = tg.checked;
+      save();
+      updatePool();
+      return;
+    }
+    if (tg.id === 'mapNoRepeat') {
+      state.mapNoRepeat = tg.checked;
+      save();
+      updatePool();
+      return;
+    }
+    var sel = tg.closest('[data-tier]');
+    if (sel) {
+      var nick = state.nicks.filter(function (m) { return m.id === sel.getAttribute('data-tier'); })[0];
+      var v = Number(sel.value);
+      if (nick && v >= 1 && v <= 5) {
+        nick.tier = v;
+        save();
+        renderTeams(); renderWho(); renderBoard();
+      }
+      return;
+    }
+    if (tg.id === 'sensMin' || tg.id === 'sensMax' || tg.id === 'sensStep') {
+      var mn = parseFloat($('#sensMin').value);
+      var mx = parseFloat($('#sensMax').value);
+      var st = parseFloat($('#sensStep').value);
+      if (isNaN(mn)) mn = state.sens.min;
+      if (isNaN(mx)) mx = state.sens.max;
+      mn = Math.min(5, Math.max(0.0001, mn));
+      mx = Math.min(5, Math.max(0.0001, mx));
+      if (mn > mx) { var tmp = mn; mn = mx; mx = tmp; }
+      state.sens = { min: Math.round(mn * 10000) / 10000, max: Math.round(mx * 10000) / 10000, step: st };
+      syncSensInputs();
+      save();
+      updatePool();
+    }
+  });
+
+  function finishCombo(nick, combo) {
+    var team = state.teams[nick.id];
+    var members = teamMembers(team);
+    var plan = planCombo(combo, members);
+    if (!plan) {
+      spinning = false;
+      renderControls();
+      setStatus('이 조합을 배정할 수 없습니다. 팀원이 제외한 요원을 확인해 주세요.', true);
+      return;
+    }
+    members.forEach(function (m) {
+      var r = state.results[m.id] || {};
+      if (plan[m.id]) { r.agent = plan[m.id]; r.agentAt = Date.now(); }
+      else if (r.agent && combo.agents.indexOf(r.agent) >= 0) { delete r.agent; delete r.agentAt; }
+      state.results[m.id] = r;
+    });
+    state.teamCombo[team] = combo.id;
+    save();
+    spinning = false;
+    renderTeams(); renderNicks(); renderControls(); renderResult(); renderBoard(); updatePool();
+    setStatus(team + '팀 프로 조합: ' + MAP_BY_KEY[combo.map].ko + ' · ' + combo.agents.map(function (k) { return AGENT_BY_KEY[k].ko; }).join(', ') + (storageOK ? ' (저장됨)' : ' (이 브라우저에서는 저장이 막혀 새로고침하면 사라집니다)'), !storageOK);
+  }
+
+  function spin() {
+    if (spinning) return;
+    var nick = selectedNick();
+    var kind = state.tab;
+    var isCombo = kind === 'agent' && state.agentMode === 'combo';
+    if (!nick && kind !== 'map') return;
+    if (kind === 'agent' && !state.teams[nick.id]) return;
+    if (kind === 'sidearm' || kind === 'primary') {
+      var gl = LOADOUT_BY_KEY[(state.results[nick.id] || {}).loadout];
+      if (!gl || gl.slots.indexOf(kind === 'sidearm' ? 'side' : 'main') < 0) return;
+    }
+
+    var pool, emptyMsg;
+    if (isCombo) {
+      pool = comboPool();
+      emptyMsg = '이 팀에 배정할 수 있는 조합이 없습니다. 대회 칩, 이번 경기 맵 필터, 팀원이 제외한 요원을 확인해 주세요.';
+    } else if (kind === 'agent') {
+      pool = agentPool();
+      emptyMsg = '후보 요원이 없습니다. 역할 필터, 제외한 요원, 같은 팀이 이미 뽑은 요원을 확인해 주세요.';
+    } else if (kind === 'cross') {
+      pool = crossPool();
+      emptyMsg = '후보 조준점이 없습니다. 종류 필터를 켜 주세요.';
+    } else if (kind === 'loadout') {
+      pool = LOADOUTS;
+      emptyMsg = '';
+    } else if (kind === 'sidearm') {
+      pool = sidearmPool();
+      emptyMsg = '후보 보조무기가 없습니다.';
+    } else if (kind === 'primary') {
+      pool = primaryPool();
+      emptyMsg = '후보 주무기가 없습니다. 종류 필터를 켜 주세요.';
+    } else if (kind === 'map') {
+      pool = mapPool();
+      emptyMsg = state.mapNoRepeat && MAPS.some(function (m) { return state.maps[m.key]; })
+        ? '고른 맵이 모두 나왔습니다. 기록을 지우거나 후보를 늘려 주세요.'
+        : '후보 맵이 없습니다. 맵 칩을 눌러 후보를 고르세요.';
+    } else {
+      pool = state.sensMode === 'pro' ? proPool() : sensValues();
+      emptyMsg = state.sensMode === 'pro' ? '뽑을 수 있는 선수가 없습니다. 다른 닉네임이 모든 선수를 뽑았어요.' : '감도 후보가 없습니다. 범위와 간격을 확인하세요.';
+    }
+    if (!pool.length) { setStatus(emptyMsg, true); return; }
+
+    var total = 56;
+    var winIdx = 44 + rnd(8);
+    var winner = pick(pool);
+    var items = [];
+    for (var i = 0; i < total; i++) items.push(pick(pool));
+    items[winIdx] = winner;
+
+    spinning = true;
+    renderControls();
+    renderTeams();
+    setStatus(isCombo ? teamName(nick.id) + '의 프로 조합을 뽑는 중…' : (kind !== 'map' ? nick.name + ' 님의 ' : '이번 경기 ') + KIND_LABEL[kind] + '을(를) 뽑는 중…', false);
+
+    (isCombo ? reels.combo : reels[kind]).spin(items, winIdx, function () {
+      if (isCombo) { finishCombo(nick, winner); return; }
+      if (kind === 'map') {
+        state.mapHistory.push(winner.key);
+        if (state.mapHistory.length > 20) state.mapHistory.shift();
+        save();
+        spinning = false;
+        renderTeams(); renderControls(); renderResult(); renderMapFilters(); if (state.agentMode === 'combo') renderComboFilters(); updatePool();
+        setStatus('이번 경기 맵: ' + winner.ko + (storageOK ? ' (저장됨)' : ' (이 브라우저에서는 저장이 막혀 새로고침하면 사라집니다)'), !storageOK);
+        return;
+      }
+      var r = state.results[nick.id] || {};
+      var label;
+      if (kind === 'agent') { r.agent = winner.key; r.agentAt = Date.now(); label = winner.ko; delete state.teamCombo[state.teams[nick.id]]; }
+      else if (kind === 'cross') { r.xh = winner.id; r.xhAt = Date.now(); label = winner.name; }
+      else if (kind === 'loadout') {
+        r.loadout = winner.key; r.loadoutAt = Date.now(); label = winner.ko;
+        var cleared = [];
+        if (r.sidearm && winner.slots.indexOf('side') < 0) { delete r.sidearm; delete r.sidearmAt; cleared.push('보조무기'); }
+        if (r.primary && winner.slots.indexOf('main') < 0) { delete r.primary; delete r.primaryAt; cleared.push('주무기'); }
+        if (cleared.length) label += ' (구성에 없는 ' + cleared.join('·') + ' 결과는 비웠어요)';
+      }
+      else if (kind === 'sidearm') { r.sidearm = winner.key; r.sidearmAt = Date.now(); label = winner.ko; }
+      else if (kind === 'primary') { r.primary = winner.key; r.primaryAt = Date.now(); label = winner.ko; }
+      else if (typeof winner === 'object') {
+        r.sens = winner.sens; r.sensAt = Date.now(); r.dpi = winner.dpi; r.sensPro = winner.name;
+        label = winner.name + ' · DPI ' + winner.dpi + ' · 감도 ' + fmtSens(winner.sens);
+      }
+      else { r.sens = winner; r.sensAt = Date.now(); delete r.dpi; delete r.sensPro; label = fmtSens(winner); }
+      state.results[nick.id] = r;
+      save();
+      spinning = false;
+      renderTeams(); renderNicks(); renderControls(); renderResult(); renderBoard(); updatePool();
+      setStatus(nick.name + ' 님 결과: ' + label + (storageOK ? ' (저장됨)' : ' (이 브라우저에서는 저장이 막혀 새로고침하면 사라집니다)'), !storageOK);
+    });
+  }
+  $('#spinBtn').addEventListener('click', spin);
+
+  var resizeT = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(function () {
+      if (spinning) return;
+      reels.agent.relayout();
+      reels.cross.relayout();
+      reels.sens.relayout();
+      reels.loadout.relayout();
+      reels.sidearm.relayout();
+      reels.primary.relayout();
+      reels.map.relayout();
+      reels.combo.relayout();
+    }, 80);
+  });
+
+  /* ---------- 시작 ---------- */
+  testStorage();
+  load();
+  syncSensInputs();
+  reels.agent.show(AGENTS.concat(AGENTS.slice(0, 6)));
+  var idleX = [];
+  for (var q = 0; q < 14; q++) idleX.push(XH[rnd(XH.length)]);
+  reels.cross.show(idleX);
+  var idleS = [];
+  var sv = sensValues();
+  for (var w = 0; w < 14; w++) idleS.push(sv[rnd(sv.length)]);
+  showSensIdle();
+  reels.loadout.show(LOADOUTS.concat(LOADOUTS, LOADOUTS));
+  var SIDEARMS = WEAPONS.filter(function (w) { return w.cat === 'sidearm'; });
+  var PRIMARIES = WEAPONS.filter(function (w) { return w.cat !== 'sidearm'; });
+  reels.sidearm.show(SIDEARMS.concat(SIDEARMS, SIDEARMS));
+  reels.primary.show(PRIMARIES.concat(PRIMARIES.slice(0, 4)));
+  reels.map.show(MAPS.concat(MAPS.slice(0, 4)));
+  reels.combo.show(shuffle(COMBOS.slice()).slice(0, 14));
+  renderAll();
+  if (!storageOK) hint('이 브라우저에서는 저장이 막혀 있어 새로고침하면 닉네임과 결과가 사라집니다.', true);
+})();
+</script>
+
+</body>
+</html>
